@@ -10,16 +10,16 @@ import (
 	"strings"
 )
 
-func getURIDirectory(URI string) (error, string) {
+func getURIDirectory(URI string) (string, error) {
 	URL, err := url.Parse(URI)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
-	return nil, fmt.Sprintf("%s%s", URL.Hostname(), strings.ToLower(strings.Replace(URL.Path, `/`, "-", -1)))
+	return fmt.Sprintf("%s%s", URL.Hostname(), strings.ToLower(strings.Replace(URL.Path, `/`, "-", -1))), nil
 }
 
 func newProcess(URI string) (*exec.Cmd, string) {
-	err, dirPath := getURIDirectory(URI)
+	dirPath, err := getURIDirectory(URI)
 	if err != nil {
 		fmt.Println("Erorr happened while getting directory name", dirPath)
 		return nil, ""
