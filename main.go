@@ -71,7 +71,13 @@ func startHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		http.Error(w, "Could not create directory for URI", 500)
 		return
 	}
-	if _, ok := streams[dir]; ok {
+	if s, ok := streams[dir]; ok {
+		b, err := json.Marshal(streamDto{URI: s.Path})
+		if err != nil {
+			http.Error(w, "Unexpected error", 500)
+			return
+		}
+		w.Write(b)
 		return
 	}
 	streamRunning := make(chan bool)
@@ -82,7 +88,7 @@ func startHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		streams[dir] = stream{
 			CMD:  cmd,
 			Mux:  &sync.Mutex{},
-			Path: path,
+			Path: fmt.Sprintf("/%s/index.m3u8", path),
 			streak: hotstreak.New(hotstreak.Config{
 				Limit:      10,
 				HotWait:    time.Minute * 1,

@@ -67,5 +67,5 @@ func newProcess(URI string) (*exec.Cmd, string) {
 		fmt.Sprintf("/stream/%s/", dirPath),
 		newPath+"/%d.ts",
 	)
-	return cmd, newPath
+	return cmd, filepath.Join("stream", dirPath)
 }
