@@ -13,5 +13,5 @@ func SetupLogger(spec *Specification) {
 		logrus.SetLevel(logrus.DebugLevel)
 		return
 	}
-	logrus.SetLevel(logrus.WarnLevel)
+	logrus.SetLevel(logrus.InfoLevel)
 }
