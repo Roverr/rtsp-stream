@@ -27,7 +27,8 @@ You can configure the following settings in the application with environment var
 
 * `RTSP_STREAM_CLEANUP_TIME` - Time period for the cleanup process in `ms`
 * `RTSP_STREAM_STORE_DIR` - Sub directory to store video chunks
-* `RTPS_STREAM_PORT` - Port where the application listens
+* `RTSP_STREAM_PORT` - Port where the application listens
+* `RTSP_STREAM_DEBUG` - Turns on debug logging
 
 ## Run with Docker
 The application has an offical docker repository at dockerhub, therefore you can easily run it with simple commands:
@@ -36,3 +37,39 @@ The application has an offical docker repository at dockerhub, therefore you can
 
 or you can build it yourself using the source code.
 
+
+## Test it out
+Create the following html file, then replace the source URL with your own choice.
+```html
+<?<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+        
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<video id="video"></video>
+<script>
+  var video = document.getElementById('video');
+  if(Hls.isSupported()) {
+    var hls = new Hls();
+    hls.loadSource('http://localhost:8080/stream/host-name-here/index.m3u8');
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED,function() {
+      video.play();
+  });
+ }
+ else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = 'http://localhost:8080/stream/host-name-here/index.m3u8';
+    video.addEventListener('loadedmetadata',function() {
+      video.play();
+    });
+  }
+</script>
+</body>
+</html>
+```

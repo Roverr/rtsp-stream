@@ -18,14 +18,14 @@ func getURIDirectory(URI string) (string, error) {
 	return fmt.Sprintf("%s%s", URL.Hostname(), strings.ToLower(strings.Replace(URL.Path, `/`, "-", -1))), nil
 }
 
-func newProcess(URI string) (*exec.Cmd, string) {
+func newProcess(URI string, spec *Specification) (*exec.Cmd, string) {
 	dirPath, err := getURIDirectory(URI)
 	if err != nil {
 		fmt.Println("Erorr happened while getting directory name", dirPath)
 		return nil, ""
 	}
 
-	newPath := filepath.Join("./videos", dirPath)
+	newPath := filepath.Join(spec.StoreDir, dirPath)
 	if err = os.MkdirAll(newPath, os.ModePerm); err != nil {
 		log.Fatal(err)
 	}

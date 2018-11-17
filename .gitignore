@@ -16,3 +16,4 @@ rtsp-stream
 stream.txt
 vendor
 videos
+.envrc
