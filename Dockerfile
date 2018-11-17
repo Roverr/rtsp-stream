@@ -12,7 +12,7 @@ RUN go build -o server
 
 ## Creating potential production image
 FROM alpine
-RUN apk update && apk add ca-certificates ffmpeg && rm -rf /var/cache/apk/*
+RUN apk update && apk add bash ca-certificates ffmpeg && rm -rf /var/cache/apk/*
 WORKDIR /app
 COPY --from=build-env /go/src/github.com/Roverr/rtsp-stream/server /app/
 ENTRYPOINT [ "/app/server" ]
