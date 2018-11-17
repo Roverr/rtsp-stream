@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"fmt"
@@ -10,7 +10,8 @@ import (
 	"strings"
 )
 
-func getURIDirectory(URI string) (string, error) {
+// GetURIDirectory is a function to create a directory string from an URI
+func GetURIDirectory(URI string) (string, error) {
 	URL, err := url.Parse(URI)
 	if err != nil {
 		return "", err
@@ -18,8 +19,9 @@ func getURIDirectory(URI string) (string, error) {
 	return fmt.Sprintf("%s%s", URL.Hostname(), strings.ToLower(strings.Replace(URL.Path, `/`, "-", -1))), nil
 }
 
-func newProcess(URI string, spec *Specification) (*exec.Cmd, string) {
-	dirPath, err := getURIDirectory(URI)
+// NewProcess creates a new transcoding process for ffmpeg
+func NewProcess(URI string, spec *Specification) (*exec.Cmd, string) {
+	dirPath, err := GetURIDirectory(URI)
 	if err != nil {
 		fmt.Println("Erorr happened while getting directory name", dirPath)
 		return nil, ""

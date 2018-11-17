@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Roverr/hotstreak"
+	"github.com/Roverr/rtsp-stream/core"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 )
@@ -51,7 +52,7 @@ func cleanUnusedProcesses() {
 		logrus.Infof("\n%s is cleaned", name)
 	}
 }
-func getStartStreamHandler(spec *Specification) func(http.ResponseWriter, *http.Request, httprouter.Params) {
+func getStartStreamHandler(spec *core.Specification) func(http.ResponseWriter, *http.Request, httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		uri, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -67,7 +68,7 @@ func getStartStreamHandler(spec *Specification) func(http.ResponseWriter, *http.
 			http.Error(w, "Empty URI", 400)
 			return
 		}
-		dir, err := getURIDirectory(dto.URI)
+		dir, err := core.GetURIDirectory(dto.URI)
 		if err != nil {
 			http.Error(w, "Could not create directory for URI", 500)
 			return
@@ -85,15 +86,15 @@ func getStartStreamHandler(spec *Specification) func(http.ResponseWriter, *http.
 		defer close(streamRunning)
 		go func() {
 			logrus.Infof("Starting processing of %s", dir)
-			cmd, path := newProcess(dto.URI, spec)
+			cmd, path := core.NewProcess(dto.URI, spec)
 			streams[dir] = stream{
 				CMD:  cmd,
 				Mux:  &sync.Mutex{},
 				Path: fmt.Sprintf("/%s/index.m3u8", path),
 				streak: hotstreak.New(hotstreak.Config{
 					Limit:      10,
-					HotWait:    time.Minute * 1,
-					ActiveWait: time.Minute * 2,
+					HotWait:    time.Minute * 2,
+					ActiveWait: time.Minute * 4,
 				}).Activate(),
 			}
 			streamRunning <- true
@@ -112,7 +113,7 @@ func getStartStreamHandler(spec *Specification) func(http.ResponseWriter, *http.
 	}
 }
 
-func cleanUpHandler() chan bool {
+func exitHandler() chan bool {
 	done := make(chan bool)
 	c := make(chan os.Signal, 3)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
@@ -125,17 +126,25 @@ func cleanUpHandler() chan bool {
 	return done
 }
 
+func cleanProcess(strm stream) error {
+	strm.Mux.Lock()
+	strm.streak.Deactivate()
+	defer strm.Mux.Unlock()
+	if err := strm.CMD.Process.Kill(); err != nil {
+		if strings.Contains(err.Error(), "process already finished") {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
 func cleanup() {
 	for uri, strm := range streams {
 		logrus.Debugf("Closing processing of %s", uri)
-		strm.Mux.Lock()
-		strm.streak.Deactivate()
-		defer strm.Mux.Unlock()
-		if err := strm.CMD.Process.Kill(); err != nil {
-			if strings.Contains(err.Error(), "process already finished") {
-				continue
-			}
+		if err := cleanProcess(strm); err != nil {
+			logrus.Debugf("Could not close %s", uri)
 			logrus.Error(err)
+			return
 		}
 		logrus.Debugf("Succesfully closed processing for %s", uri)
 	}
@@ -149,19 +158,11 @@ func determineHost(path string) string {
 	return ""
 }
 
-func setupLogger(spec *Specification) {
-	logrus.SetOutput(os.Stdout)
-	if spec.Debug {
-		logrus.SetLevel(logrus.DebugLevel)
-		return
-	}
-	logrus.SetLevel(logrus.WarnLevel)
-}
-
 func main() {
-	config := initConfig()
-	setupLogger(config)
-	done := cleanUpHandler()
+	config := core.InitConfig()
+	core.SetupLogger(config)
+	done := exitHandler()
+
 	router := httprouter.New()
 	router.POST("/start", getStartStreamHandler(config))
 

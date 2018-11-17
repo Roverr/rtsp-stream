@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"log"
@@ -15,7 +15,8 @@ type Specification struct {
 	StoreDir    string        `envconfig:"store_dir" default:"./videos"` // Directory to store / service video chunks
 }
 
-func initConfig() *Specification {
+// InitConfig is to initalise the config
+func InitConfig() *Specification {
 	var s Specification
 	err := envconfig.Process("RTSP_STREAM", &s)
 	if err != nil {
