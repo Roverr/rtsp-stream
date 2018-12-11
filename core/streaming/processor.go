@@ -1,4 +1,4 @@
-package core
+package streaming
 
 import (
 	"fmt"
@@ -8,6 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/Roverr/rtsp-stream/core/config"
+	"github.com/sirupsen/logrus"
 )
 
 // GetURIDirectory is a function to create a directory string from an URI
@@ -20,10 +23,10 @@ func GetURIDirectory(URI string) (string, error) {
 }
 
 // NewProcess creates a new transcoding process for ffmpeg
-func NewProcess(URI string, spec *Specification) (*exec.Cmd, string) {
+func NewProcess(URI string, spec *config.Specification) (*exec.Cmd, string) {
 	dirPath, err := GetURIDirectory(URI)
 	if err != nil {
-		fmt.Println("Erorr happened while getting directory name", dirPath)
+		logrus.Error("Error happened while getting directory name", dirPath)
 		return nil, ""
 	}
 

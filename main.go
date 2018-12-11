@@ -8,11 +8,12 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/Roverr/rtsp-stream/core"
+	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	config := core.InitConfig()
+	config := config.InitConfig()
 	core.SetupLogger(config)
 	done := core.ExitHandler()
 	router := core.GetRouter(config)

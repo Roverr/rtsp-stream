@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Roverr/hotstreak"
+	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
@@ -37,7 +38,7 @@ type summariseDto struct {
 }
 
 // restartStream is used when a stream is stopped but it gets a new request
-func restartStream(spec *Specification, path string) error {
+func restartStream(spec *config.Specification, path string) error {
 	stream, ok := streams[path]
 	if !ok {
 		return ErrNoStreamFn(path)
@@ -47,7 +48,7 @@ func restartStream(spec *Specification, path string) error {
 	}
 	stream.Mux.Lock()
 	defer stream.Mux.Unlock()
-	stream.CMD, _ = NewProcess(stream.OriginalURI, spec)
+	stream.CMD, _ = streaming.NewProcess(stream.OriginalURI, spec)
 	stream.Streak.Activate()
 	go func() {
 		err := stream.CMD.Run()
@@ -76,7 +77,7 @@ func getListStreamHandler() func(http.ResponseWriter, *http.Request, httprouter.
 }
 
 // getStartStreamHandler returns an HTTP handler for the /start endpoint
-func getStartStreamHandler(spec *Specification) func(http.ResponseWriter, *http.Request, httprouter.Params) {
+func getStartStreamHandler(spec *config.Specification) func(http.ResponseWriter, *http.Request, httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		// Parse request
 		uri, err := ioutil.ReadAll(r.Body)
@@ -95,7 +96,7 @@ func getStartStreamHandler(spec *Specification) func(http.ResponseWriter, *http.
 		}
 
 		// Calculate directory from URI
-		dir, err := GetURIDirectory(dto.URI)
+		dir, err := streaming.GetURIDirectory(dto.URI)
 		if err != nil {
 			logrus.Error(err)
 			http.Error(w, "Could not create directory for URI", 500)
@@ -125,7 +126,7 @@ func getStartStreamHandler(spec *Specification) func(http.ResponseWriter, *http.
 		defer close(streamRunning)
 		go func() {
 			logrus.Infof("Starting processing of %s", dir)
-			cmd, path := NewProcess(dto.URI, spec)
+			cmd, path := streaming.NewProcess(dto.URI, spec)
 			streams[dir] = streaming.Stream{
 				CMD:  cmd,
 				Mux:  &sync.Mutex{},
@@ -186,7 +187,7 @@ func cleanUnusedProcesses() {
 }
 
 // GetRouter returns the return for the application
-func GetRouter(config *Specification) *httprouter.Router {
+func GetRouter(config *config.Specification) *httprouter.Router {
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
 	if config.ListEndpoint {

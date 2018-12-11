@@ -37,6 +37,7 @@ func cleanProcess(strm streaming.Stream) error {
 	}
 	return nil
 }
+
 func cleanup() {
 	for uri, strm := range streams {
 		logrus.Debugf("Closing processing of %s", uri)
