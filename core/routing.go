@@ -51,6 +51,7 @@ func restartStream(spec *config.Specification, path string) error {
 	stream.CMD, _ = streaming.NewProcess(stream.OriginalURI, spec)
 	stream.Streak.Activate()
 	go func() {
+		logrus.Infof("%s has been restarted", path)
 		err := stream.CMD.Run()
 		if err != nil {
 			logrus.Error(err)
@@ -125,7 +126,7 @@ func getStartStreamHandler(spec *config.Specification) func(http.ResponseWriter,
 		streamRunning := make(chan bool)
 		defer close(streamRunning)
 		go func() {
-			logrus.Infof("Starting processing of %s", dir)
+			logrus.Infof("%s started processing", dir)
 			cmd, path := streaming.NewProcess(dto.URI, spec)
 			streams[dir] = streaming.Stream{
 				CMD:  cmd,

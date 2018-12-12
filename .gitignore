@@ -17,3 +17,6 @@ stream.txt
 vendor
 videos
 .envrc
+node_modules
+dist
+.cache
