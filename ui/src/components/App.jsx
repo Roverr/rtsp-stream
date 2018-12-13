@@ -1,50 +1,108 @@
 import React, { Component } from 'react';
-import { Row, Button, Container, InputGroupAddon, InputGroup, Input } from 'reactstrap';
 import ReactHls from 'react-hls';
-import { APIHandler,  } from './api';
+import {
+    Row,
+    Button,
+    Container,
+    InputGroupAddon,
+    InputGroup,
+    Input,
+    Col,
+    FormGroup,
+    Card
+} from 'reactstrap';
+
+import { APIHandler } from './api';
 
 class App extends Component {
     constructor(props) {
         super(props);
-        this.url = 'http://localhost:8080';
-        this.apiHandler = new APIHandler(this.url);
-        this.state = { streams: [], current: '' };
+        this.state = { streams: [], current: null };
+        /** @property {APIHandler} apiHandler */
+        this.apiHandler = this.props.apiHandler || new APIHandler('http://localhost:8080');
+        /** @property {HTMLInputElement} uriInput */
+        this.uriInput;
     }
-    getStream() {
-        if (this.state.current === '') {
-            return null;
-        }
-        return (
-            <ReactHls url={this.state.current} />
+
+    componentDidMount() {
+        this.apiHandler.listStreams().then(
+            (streams) => this.setState({
+                streams,
+                current: streams.length ? 0 : null,
+            }),
         );
     }
+
+    addInputStream() {
+        this.apiHandler.startStream(this.uriInput.value).then((res) => {
+            const { uri } = res.data;
+            this.setState(({ streams, current }) => ({
+                streams: [ ...streams, uri ],
+                current: current || 0,
+            }));
+        });
+    }
+
     render() {
         return (
-          <Container style={{marginTop: '2em'}}>
+          <Container className="my-4">
             <Row>
-            <InputGroup>
-                <InputGroupAddon addonType="prepend"><Button> Add URI </Button></InputGroupAddon>
-                <Input placeholder="http://username:password@host:port/subroute" />
-            </InputGroup>
+                <Col md={{size: 8, offset: 2}}>
+                    {this.renderPlayer()}
+                </Col>
             </Row>
             <Row>
-                Available streams: {this.state.streams}
+                <Col md={{size: 8, offset: 2}}>
+                    {this.renderInput()}
+                    {this.renderList()}
+                </Col>
             </Row>
-            {this.getStream()}
           </Container>
         );
     }
-    componentDidMount() {
-        this.apiHandler.listStreams().then((resp) => {
-            if (resp.data.length > 0) {
-                this.state = {
-                    ...this.state,
-                    streams: resp.data,
-                };
-            }
-        }).catch((err) => console.log(err));
+
+    renderInput() {
+        return (
+            <InputGroup className="my-1">
+                <Input
+                    innerRef={(elem) => (this.uriInput = elem)}
+                    placeholder="rtsp://username:password@host:port/subroute"
+                />
+                <InputGroupAddon addonType="append">
+                    <Button color="primary" onClick={this.addInputStream.bind(this)}>Add</Button>
+                </InputGroupAddon>
+            </InputGroup>
+        );
+    }
+
+    renderList() {
+        const onChange = (ev) => this.setState({ current: parseInt(ev.target.value, 10) })
+        const playStreamFactory = (current) => () => this.setState({ current });
+        const options = this.state.streams.map(
+            (uri, offset) => (
+                <option key={uri} value={offset} onClick={playStreamFactory(offset)}>
+                    {uri}
+                </option>
+            ),
+        );
+        return (
+            <Input type="select" onChange={onChange} className="my-1">
+                {options}
+            </Input>
+        )
+    }
+
+    renderPlayer() {
+        const props = { style: {textAlign: "center", position: "relative"} };
+        const content = this.state.current === null
+            ? <span className="display-5 py-4">Select or add a stream below.</span>
+            : <ReactHls width="100%" url={`${this.state.streams[this.state.current]}`} autoplay />;
+        return (
+            <FormGroup>
+                <Card {...props}>{content}</Card>
+            </FormGroup>
+        );
     }
 }
-
 
 export default App;
