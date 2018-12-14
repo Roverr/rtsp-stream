@@ -38,7 +38,7 @@ Lists all streams that are stored in the system along with their state of runnin
 [
     {
         "running": true,
-        "path": "185.180.88.98-streaming-channels-101"
+        "uri": "/stream/185.180.88.98-streaming-channels-101/index.m3u8"
     }
 ]
 ``` 
@@ -51,8 +51,8 @@ You can configure the following settings in the application with environment var
 * `RTSP_STREAM_CLEANUP_TIME` - bool - Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration) default: `2m0s`
 * `RTSP_STREAM_STORE_DIR` - string - Sub directory to store video chunks
 * `RTSP_STREAM_PORT` - number - Port where the application listens
-* `RTSP_STREAM_DEBUG` - bool -Turns on / off debug logging
-* `RTSP_STREAM_LIST_ENDPOINT` - bool -Turns on / off the `/list` endpoint (can be useful for debugging)
+* `RTSP_STREAM_DEBUG` - bool - Turns on / off debug logging
+* `RTSP_STREAM_LIST_ENDPOINT` - bool - Turns on / off the `/list` endpoint
 
 **CORS related configuration:**
 
