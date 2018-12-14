@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -63,7 +64,7 @@ func restartStream(spec *config.Specification, path string) error {
 }
 
 // getListStreamHandler returns the handler for the list endpoint
-func getListStreamHandler() func(http.ResponseWriter, *http.Request, httprouter.Params) {
+func getListStreamHandler() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		dto := []*summariseDto{}
 		for key, stream := range streams {
@@ -79,30 +80,82 @@ func getListStreamHandler() func(http.ResponseWriter, *http.Request, httprouter.
 	}
 }
 
-// getStartStreamHandler returns an HTTP handler for the /start endpoint
-func getStartStreamHandler(spec *config.Specification) func(http.ResponseWriter, *http.Request, httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		// Parse request
-		uri, err := ioutil.ReadAll(r.Body)
+// validateURI is for validiting that the URI is in a valid format
+func validateURI(dto *streamDto, body io.Reader) error {
+	// Parse request
+	uri, err := ioutil.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(uri, dto); err != nil {
+		return err
+	}
+
+	if _, err := url.Parse(dto.URI); err != nil {
+		return errors.New("Invalid URI")
+	}
+	return nil
+}
+
+func startStream(uri, dir string, spec *config.Specification, streamRunning chan<- bool, errorIssued chan<- bool) {
+	logrus.Infof("%s started processing", dir)
+	cmd, path, physicalPath := streaming.NewProcess(uri, spec)
+	streams[dir] = streaming.Stream{
+		CMD:  cmd,
+		Mux:  &sync.Mutex{},
+		Path: fmt.Sprintf("/%s/index.m3u8", path),
+		Streak: hotstreak.New(hotstreak.Config{
+			Limit:      10,
+			HotWait:    time.Minute * 2,
+			ActiveWait: time.Minute * 4,
+		}).Activate(),
+		OriginalURI: uri,
+	}
+	go func() {
+		for {
+			_, err := os.Stat(physicalPath)
+			if err != nil {
+				<-time.After(25 * time.Millisecond)
+				continue
+			}
+			streamRunning <- true
+			return
+		}
+	}()
+	if err := cmd.Run(); err != nil {
+		logrus.Error(err)
+		errorIssued <- true
+	}
+}
+
+func handleAlreadyRunningStream(w http.ResponseWriter, s streaming.Stream, spec *config.Specification, dir string) {
+	// If transcoding is not running, spin it back up
+	if !s.Streak.IsActive() {
+		err := restartStream(spec, dir)
 		if err != nil {
-			http.Error(w, "Invalid body", 400)
+			logrus.Error(err)
+			http.Error(w, "Unexpected error", 500)
 			return
 		}
+	}
+	// If the stream is already running return its path
+	b, err := json.Marshal(streamDto{URI: s.Path})
+	if err != nil {
+		http.Error(w, "Unexpected error", 500)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// getStartStreamHandler returns an HTTP handler for the /start endpoint
+func getStartStreamHandler(spec *config.Specification) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		var dto streamDto
-		if err = json.Unmarshal(uri, &dto); err != nil {
-			http.Error(w, "Invalid body", 400)
+		if err := validateURI(&dto, r.Body); err != nil {
+			http.Error(w, err.Error(), 400)
 			return
 		}
-		if dto.URI == "" {
-			http.Error(w, "Empty URI", 400)
-			return
-		}
-
-		if _, err := url.Parse(dto.URI); err != nil {
-			http.Error(w, "Invalid URI", 400)
-			return
-		}
-
 		// Calculate directory from URI
 		dir, err := streaming.GetURIDirectory(dto.URI)
 		if err != nil {
@@ -110,61 +163,15 @@ func getStartStreamHandler(spec *config.Specification) func(http.ResponseWriter,
 			http.Error(w, "Could not create directory for URI", 500)
 			return
 		}
-		if s, ok := streams[dir]; ok {
-			// If transcoding is not running, spin it back up
-			if !s.Streak.IsActive() {
-				err := restartStream(spec, dir)
-				if err != nil {
-					logrus.Error(err)
-					http.Error(w, "Unexpected error", 500)
-					return
-				}
-			}
-			// If the stream is already running return its path
-			b, err := json.Marshal(streamDto{URI: s.Path})
-			if err != nil {
-				http.Error(w, "Unexpected error", 500)
-				return
-			}
-			w.Header().Add("Content-Type", "application/json")
-			w.Write(b)
+		if stream, ok := streams[dir]; ok {
+			handleAlreadyRunningStream(w, stream, spec, dir)
 			return
 		}
 		streamRunning := make(chan bool)
 		defer close(streamRunning)
 		errorIssued := make(chan bool)
 		defer close(errorIssued)
-		go func() {
-			logrus.Infof("%s started processing", dir)
-			cmd, path, physicalPath := streaming.NewProcess(dto.URI, spec)
-			streams[dir] = streaming.Stream{
-				CMD:  cmd,
-				Mux:  &sync.Mutex{},
-				Path: fmt.Sprintf("/%s/index.m3u8", path),
-				Streak: hotstreak.New(hotstreak.Config{
-					Limit:      10,
-					HotWait:    time.Minute * 2,
-					ActiveWait: time.Minute * 4,
-				}).Activate(),
-				OriginalURI: dto.URI,
-			}
-			go func() {
-				for {
-					_, err := os.Stat(physicalPath)
-					if err != nil {
-						<-time.After(25 * time.Millisecond)
-						continue
-					}
-					streamRunning <- true
-					return
-				}
-			}()
-			if err := cmd.Run(); err != nil {
-				logrus.Error(err)
-				errorIssued <- true
-			}
-		}()
-
+		startStream(dto.URI, dir, spec, streamRunning, errorIssued)
 		select {
 		case <-time.After(time.Second * 10):
 			http.Error(w, "Timeout error", 408)
