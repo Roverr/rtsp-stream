@@ -63,7 +63,7 @@ func restartStream(spec *config.Specification, path string) error {
 }
 
 // getListStreamHandler returns the handler for the list endpoint
-func getListStreamHandler() func(http.ResponseWriter, *http.Request, httprouter.Params) {
+func getListStreamHandler() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		dto := []*summariseDto{}
 		for key, stream := range streams {
@@ -80,7 +80,7 @@ func getListStreamHandler() func(http.ResponseWriter, *http.Request, httprouter.
 }
 
 // getStartStreamHandler returns an HTTP handler for the /start endpoint
-func getStartStreamHandler(spec *config.Specification) func(http.ResponseWriter, *http.Request, httprouter.Params) {
+func getStartStreamHandler(spec *config.Specification) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		// Parse request
 		uri, err := ioutil.ReadAll(r.Body)
