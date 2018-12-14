@@ -42,14 +42,6 @@ Lists all streams that are stored in the system along with their state of runnin
 ``` 
 <hr>
 
-`DELETE /stream/host`
-
-Deletes a given host if it's a known stream.
-Requires no payload.
-
-<hr>
-
-
 ## Configuration
 
 You can configure the following settings in the application with environment variables:
@@ -81,4 +73,11 @@ You can use the included UI for handling the streams. The UI is not a compact so
 
 Running it with docker:
 
-`docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-ui`
+`docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-management`
+
+If you decide to use the management image, you should know that port 80 is flexible, you can set it to whatever you prefer, but 8080 is currently burnt into the UI as the ultimate port of the backend.
+
+You should expect something like this:
+
+
+<img src="./ui.gif"/>
