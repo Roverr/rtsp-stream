@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -34,7 +36,7 @@ type streamDto struct {
 // summariseDto describes each stream and their state of running
 type summariseDto struct {
 	Running bool   `json:"running"`
-	Path    string `json:"path"`
+	URI     string `json:"uri"`
 }
 
 // restartStream is used when a stream is stopped but it gets a new request
@@ -48,7 +50,7 @@ func restartStream(spec *config.Specification, path string) error {
 	}
 	stream.Mux.Lock()
 	defer stream.Mux.Unlock()
-	stream.CMD, _ = streaming.NewProcess(stream.OriginalURI, spec)
+	stream.CMD, _, _ = streaming.NewProcess(stream.OriginalURI, spec)
 	stream.Streak.Activate()
 	go func() {
 		logrus.Infof("%s has been restarted", path)
@@ -65,7 +67,7 @@ func getListStreamHandler() func(http.ResponseWriter, *http.Request, httprouter.
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		dto := []*summariseDto{}
 		for key, stream := range streams {
-			dto = append(dto, &summariseDto{Path: key, Running: stream.Streak.IsActive()})
+			dto = append(dto, &summariseDto{URI: fmt.Sprintf("/stream/%s/index.m3u8", key), Running: stream.Streak.IsActive()})
 		}
 		b, err := json.Marshal(dto)
 		if err != nil {
@@ -93,6 +95,11 @@ func getStartStreamHandler(spec *config.Specification) func(http.ResponseWriter,
 		}
 		if dto.URI == "" {
 			http.Error(w, "Empty URI", 400)
+			return
+		}
+
+		if _, err := url.Parse(dto.URI); err != nil {
+			http.Error(w, "Invalid URI", 400)
 			return
 		}
 
@@ -125,9 +132,11 @@ func getStartStreamHandler(spec *config.Specification) func(http.ResponseWriter,
 		}
 		streamRunning := make(chan bool)
 		defer close(streamRunning)
+		errorIssued := make(chan bool)
+		defer close(errorIssued)
 		go func() {
 			logrus.Infof("%s started processing", dir)
-			cmd, path := streaming.NewProcess(dto.URI, spec)
+			cmd, path, physicalPath := streaming.NewProcess(dto.URI, spec)
 			streams[dir] = streaming.Stream{
 				CMD:  cmd,
 				Mux:  &sync.Mutex{},
@@ -139,20 +148,40 @@ func getStartStreamHandler(spec *config.Specification) func(http.ResponseWriter,
 				}).Activate(),
 				OriginalURI: dto.URI,
 			}
-			streamRunning <- true
+			go func() {
+				for {
+					_, err := os.Stat(physicalPath)
+					if err != nil {
+						<-time.After(25 * time.Millisecond)
+						continue
+					}
+					streamRunning <- true
+					return
+				}
+			}()
 			if err := cmd.Run(); err != nil {
 				logrus.Error(err)
+				errorIssued <- true
 			}
 		}()
-		<-streamRunning
-		s := streams[dir]
-		b, err := json.Marshal(streamDto{URI: s.Path})
-		if err != nil {
+
+		select {
+		case <-time.After(time.Second * 10):
+			http.Error(w, "Timeout error", 408)
+			return
+		case <-streamRunning:
+			s := streams[dir]
+			b, err := json.Marshal(streamDto{URI: s.Path})
+			if err != nil {
+				http.Error(w, "Unexpected error", 500)
+				return
+			}
+			w.Header().Add("Content-Type", "application/json")
+			w.Write(b)
+		case <-errorIssued:
 			http.Error(w, "Unexpected error", 500)
 			return
 		}
-		w.Header().Add("Content-Type", "application/json")
-		w.Write(b)
 	}
 }
 

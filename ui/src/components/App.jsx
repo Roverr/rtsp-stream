@@ -19,7 +19,7 @@ class App extends Component {
         super(props);
         this.state = { streams: [], current: null };
         /** @property {APIHandler} apiHandler */
-        this.apiHandler = this.props.apiHandler || new APIHandler('http://localhost:8080');
+        this.apiHandler = this.props.apiHandler || new APIHandler(process.env.API_URL || 'http://localhost:8080');
         /** @property {HTMLInputElement} uriInput */
         this.uriInput;
     }
@@ -29,18 +29,18 @@ class App extends Component {
             (streams) => this.setState({
                 streams,
                 current: streams.length ? 0 : null,
-            }),
-        );
+            })
+        ).catch((e) => console.log(e));
     }
 
     addInputStream() {
         this.apiHandler.startStream(this.uriInput.value).then((res) => {
             const { uri } = res.data;
             this.setState(({ streams, current }) => ({
-                streams: [ ...streams, uri ],
+                streams: [ ...streams, `${this.apiHandler.getUrl()}${uri}` ],
                 current: current || 0,
             }));
-        });
+        }).catch((e) => console.log(e));
     }
 
     render() {

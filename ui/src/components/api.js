@@ -11,7 +11,7 @@ export class APIHandler{
     listStreams() {
         return axios.get(`${this.url}/list`).then((res) => {
             return res.data.map(
-                ({ path }) => `${this.url}/stream/${path}/index.m3u8`,
+                ({ uri }) => `${this.url}${uri}`,
             );
         });
     }

@@ -23,11 +23,11 @@ func GetURIDirectory(URI string) (string, error) {
 }
 
 // NewProcess creates a new transcoding process for ffmpeg
-func NewProcess(URI string, spec *config.Specification) (*exec.Cmd, string) {
+func NewProcess(URI string, spec *config.Specification) (*exec.Cmd, string, string) {
 	dirPath, err := GetURIDirectory(URI)
 	if err != nil {
 		logrus.Error("Error happened while getting directory name", dirPath)
-		return nil, ""
+		return nil, "", ""
 	}
 
 	newPath := filepath.Join(spec.StoreDir, dirPath)
@@ -72,5 +72,5 @@ func NewProcess(URI string, spec *config.Specification) (*exec.Cmd, string) {
 		fmt.Sprintf("/stream/%s/", dirPath),
 		newPath+"/%d.ts",
 	)
-	return cmd, filepath.Join("stream", dirPath)
+	return cmd, filepath.Join("stream", dirPath), fmt.Sprintf("%s/index.m3u8", newPath)
 }

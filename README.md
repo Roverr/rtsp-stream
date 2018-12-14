@@ -40,6 +40,14 @@ Lists all streams that are stored in the system along with their state of runnin
     }
 ]
 ``` 
+<hr>
+
+`DELETE /stream/host`
+
+Deletes a given host if it's a known stream.
+Requires no payload.
+
+<hr>
 
 
 ## Configuration
@@ -63,43 +71,14 @@ By default all origin is allowed to make requests to the server, but you might w
 ## Run with Docker
 The application has an offical docker repository at dockerhub, therefore you can easily run it with simple commands:
 
-`docker run -p 80:8080 roverr/rtsp-stream`
+`docker run -p 80:8080 roverr/rtsp-stream:1`
 
 or you can build it yourself using the source code.
 
+## UI
 
-## Test it out
-Create the following html file, then replace the source URL with your own choice.
-```html
-<?<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Document</title>
-</head>
-<body>
-        
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<video id="video"></video>
-<script>
-  var video = document.getElementById('video');
-  if(Hls.isSupported()) {
-    var hls = new Hls();
-    hls.loadSource('http://localhost:8080/stream/host-name-here/index.m3u8');
-    hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED,function() {
-      video.play();
-  });
- }
- else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = 'http://localhost:8080/stream/host-name-here/index.m3u8';
-    video.addEventListener('loadedmetadata',function() {
-      video.play();
-    });
-  }
-</script>
-</body>
-</html>
-```
+You can use the included UI for handling the streams. The UI is not a compact solution right now, but it gets the job done.
+
+Running it with docker:
+
+`docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-ui`
