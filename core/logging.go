@@ -3,11 +3,12 @@ package core
 import (
 	"os"
 
+	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/sirupsen/logrus"
 )
 
 // SetupLogger sets the logger for the proper settings based on the environment
-func SetupLogger(spec *Specification) {
+func SetupLogger(spec *config.Specification) {
 	logrus.SetOutput(os.Stdout)
 	if spec.Debug {
 		logrus.SetLevel(logrus.DebugLevel)
