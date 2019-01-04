@@ -34,6 +34,14 @@
   version = "v1.3.0"
 
 [[projects]]
+  digest = "1:e30ac47ee84d7d354e0a284cf742e3015400667e90aa3d6ae99c7a55da67c645"
+  name = "github.com/kennygrant/sanitize"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "06ec0d0dbcd497d01e5189b16f5263f712e61a8e"
+  version = "v1.2.4"
+
+[[projects]]
   digest = "1:0a69a1c0db3591fcefb47f115b224592c8dfa4368b7ba9fae509d5e16cdc95c8"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
@@ -83,6 +91,17 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:1a1ecfa7b54ca3f7a0115ab5c578d7d6a5d8b605839c549e80260468c42f8be7"
+  name = "golang.org/x/net"
+  packages = [
+    "html",
+    "html/atom",
+  ]
+  pruneopts = "UT"
+  revision = "927f97764cc334a6575f4b7a1584a147864d5723"
+
+[[projects]]
+  branch = "master"
   digest = "1:a089387bbfcfa884e5aafeebb85929993195bb8959766b1d20102841d47e0b0e"
   name = "golang.org/x/sys"
   packages = [
@@ -99,6 +118,7 @@
     "github.com/Roverr/hotstreak",
     "github.com/julienschmidt/httprouter",
     "github.com/kelseyhightower/envconfig",
+    "github.com/kennygrant/sanitize",
     "github.com/rs/cors",
     "github.com/sirupsen/logrus",
     "github.com/stretchr/testify/assert",
