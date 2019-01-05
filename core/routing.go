@@ -81,7 +81,7 @@ func determineHost(path string) string {
 }
 
 // GetRouter returns the return for the application
-func GetRouter(config *config.Specification) *httprouter.Router {
+func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
 	controllers := Controller{config, map[string]streaming.Stream{}, fileServer}
@@ -99,5 +99,5 @@ func GetRouter(config *config.Specification) *httprouter.Router {
 		}
 	}()
 
-	return router
+	return router, &controllers
 }

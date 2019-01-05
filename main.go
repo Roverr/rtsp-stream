@@ -15,8 +15,8 @@ import (
 func main() {
 	config := config.InitConfig()
 	core.SetupLogger(config)
-	done := core.ExitHandler()
-	router := core.GetRouter(config)
+	router, ctrls := core.GetRouter(config)
+	done := ctrls.ExitHandler()
 	handler := cors.AllowAll().Handler(router)
 	if config.CORS.Enabled {
 		handler = cors.New(cors.Options{

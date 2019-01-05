@@ -9,7 +9,6 @@ import (
 )
 
 func TestGetURIDirectory(t *testing.T) {
-
 	tt := []struct {
 		Input  string
 		Output string
