@@ -63,7 +63,7 @@ func determineHost(path string) string {
 func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
-	controllers := Controller{config, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.Processor{}}
+	controllers := Controller{config, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.Processor{}, time.Second * 15}
 	if config.ListEndpoint {
 		router.GET("/list", controllers.ListStreamHandler)
 	}

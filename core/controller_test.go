@@ -64,11 +64,15 @@ func generateStream(hs *hotstreak.Hotstreak, URI string) generatedStream {
 
 type mockManager struct {
 	resolve bool
+	instead *func(physicalPath string) chan bool
 }
 
 var _ IManager = (*mockManager)(nil)
 
 func (m mockManager) Start(cmd *exec.Cmd, physicalPath string) chan bool {
+	if m.instead != nil {
+		return (*m.instead)(physicalPath)
+	}
 	streamResolved := make(chan bool, 1)
 	streamResolved <- m.resolve
 	return streamResolved
@@ -165,7 +169,7 @@ func TestController(t *testing.T) {
 
 	t.Run("Should be able to start stream correctly", func(t *testing.T) {
 		ctrls := NewController(cfg, fileServer)
-		ctrls.manager = mockManager{true}
+		ctrls.manager = mockManager{resolve: true}
 		ctrls.processor = mockProcessor{}
 		ctrls.streams = map[string]*streaming.Stream{}
 		router := httprouter.New()
@@ -194,7 +198,7 @@ func TestController(t *testing.T) {
 
 	t.Run("Should be able to receive unexpected error if something happens", func(t *testing.T) {
 		ctrls := NewController(cfg, fileServer)
-		ctrls.manager = mockManager{false}
+		ctrls.manager = mockManager{resolve: false}
 		ctrls.processor = mockProcessor{}
 		ctrls.streams = map[string]*streaming.Stream{}
 		router := httprouter.New()
@@ -215,5 +219,34 @@ func TestController(t *testing.T) {
 		var errDto ErrDTO
 		assert.Nil(t, json.Unmarshal(b, &errDto))
 		assert.Equal(t, ErrDTO{ErrUnexpected.Error()}, errDto)
+	})
+
+	t.Run("Should be able to timeout if the process takes too long", func(t *testing.T) {
+		instead := func(physicalPath string) chan bool {
+			return make(chan bool)
+		}
+		ctrls := NewController(cfg, fileServer)
+		ctrls.timeout = time.Millisecond * 300
+		ctrls.manager = mockManager{instead: &instead}
+		ctrls.processor = mockProcessor{}
+		ctrls.streams = map[string]*streaming.Stream{}
+		router := httprouter.New()
+		router.GET("/list", ctrls.ListStreamHandler)
+		router.POST("/start", ctrls.StartStreamHandler)
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		dto := streamDto{
+			URI: generateURI(),
+		}
+		b, err := json.Marshal(dto)
+		assert.Nil(t, err)
+		res, err := http.Post(fmt.Sprintf("%s/start", server.URL), "application/json", bytes.NewBuffer(b))
+		assert.Nil(t, err)
+		b, err = ioutil.ReadAll(res.Body)
+		assert.Nil(t, err)
+		var errDto ErrDTO
+		assert.Nil(t, json.Unmarshal(b, &errDto))
+		assert.Equal(t, ErrDTO{ErrTimeout.Error()}, errDto)
 	})
 }

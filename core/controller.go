@@ -38,11 +38,12 @@ type Controller struct {
 	fileServer http.Handler
 	manager    IManager
 	processor  streaming.IProcessor
+	timeout    time.Duration
 }
 
 // NewController creates a new instance of Controller
 func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
-	return &Controller{spec, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.NewProcessor(spec.StoreDir)}
+	return &Controller{spec, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.NewProcessor(spec.StoreDir), time.Second * 15}
 }
 
 // SendError sends an error to the client
@@ -90,7 +91,7 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 	streamResolved := c.startStream(dto.URI, dir, c.spec)
 	defer close(streamResolved)
 	select {
-	case <-time.After(time.Second * 15):
+	case <-time.After(c.timeout):
 		c.SendError(w, ErrTimeout, http.StatusRequestTimeout)
 		return
 	case success := <-streamResolved:
