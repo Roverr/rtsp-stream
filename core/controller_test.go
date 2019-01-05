@@ -249,4 +249,38 @@ func TestController(t *testing.T) {
 		assert.Nil(t, json.Unmarshal(b, &errDto))
 		assert.Equal(t, ErrDTO{ErrTimeout.Error()}, errDto)
 	})
+
+	t.Run("Should be able to clean unusued streams", func(t *testing.T) {
+		ctrls := NewController(cfg, fileServer)
+		router := httprouter.New()
+		router.GET("/list", ctrls.ListStreamHandler)
+		router.POST("/start", ctrls.StartStreamHandler)
+		server := httptest.NewServer(router)
+		defer server.Close()
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+
+		generated := generateStream(nil, "")
+		generated.strm.Streak.Deactivate()
+		generated.strm.CMD = exec.Command("tail", "-f", "/dev/null")
+		go func() {
+			generated.strm.CMD.Run()
+			wg.Done()
+		}()
+		activeGenerated := generateStream(nil, "")
+		activeGenerated.strm.Streak.Activate().Hit()
+		activeGenerated.strm.CMD = exec.Command("tail", "-f", "/dev/null")
+		go func() {
+			activeGenerated.strm.CMD.Run()
+		}()
+		ctrls.streams = map[string]*streaming.Stream{
+			generated.dirPath:       &generated.strm,
+			activeGenerated.dirPath: &activeGenerated.strm,
+		}
+		<-time.After(time.Second * 2)
+		ctrls.cleanUnused()
+		wg.Wait()
+		assert.False(t, generated.strm.CMD.ProcessState.Success())
+		assert.Nil(t, activeGenerated.strm.CMD.ProcessState)
+	})
 }

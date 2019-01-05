@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -72,7 +75,7 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 // StartStreamHandler is an HTTP handler for the /start endpoint
 func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var dto streamDto
-	if err := validateURI(&dto, r.Body); err != nil {
+	if err := c.marshalValidatedURI(&dto, r.Body); err != nil {
 		logrus.Error(err)
 		c.SendError(w, err, http.StatusBadRequest)
 		return
@@ -165,19 +168,24 @@ func (c *Controller) cleanUnused() {
 	for name, data := range c.streams {
 		// If the streak is active, there is no need for stopping
 		if data.Streak.IsActive() {
-			logrus.Debugf("%s is active, skipping cleaning process", name)
+			logrus.Infof("%s is active, skipping cleaning process", name)
 			continue
 		}
 		logrus.Infof("%s is getting cleaned", name)
 		data.Mux.Lock()
-		defer data.Mux.Unlock()
+		if data.CMD == nil || data.CMD.Process == nil {
+			data.Mux.Unlock()
+			continue
+		}
 		if err := data.CMD.Process.Kill(); err != nil {
 			if strings.Contains(err.Error(), "process already finished") {
 				logrus.Infof("\n%s is cleaned", name)
+				data.Mux.Unlock()
 				continue
 			}
 			logrus.Error(err)
 		}
+		data.Mux.Unlock()
 		logrus.Infof("\n%s is cleaned", name)
 	}
 }
@@ -203,10 +211,28 @@ func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps ht
 	s.Streak.Activate().Hit()
 }
 
+// startStream creates a new stream then starts processing it with a manager
 func (c *Controller) startStream(uri, dir string, spec *config.Specification) chan bool {
 	logrus.Infof("%s started processing", dir)
 	stream, physicalPath := c.processor.NewStream(uri)
 	c.streams[dir] = stream
 	ch := c.manager.Start(stream.CMD, physicalPath)
 	return ch
+}
+
+// marshalValidateURI is for validiting that the URI is in a valid format
+// and marshaling it into the dto pointer
+func (c *Controller) marshalValidatedURI(dto *streamDto, body io.Reader) error {
+	uri, err := ioutil.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(uri, dto); err != nil {
+		return err
+	}
+
+	if _, err := url.Parse(dto.URI); err != nil {
+		return errors.New("Invalid URI")
+	}
+	return nil
 }

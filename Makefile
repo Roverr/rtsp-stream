@@ -1,5 +1,9 @@
 test: ## Runs tests
 	go test ./...
+coverage: ## Runs tests with coverage going into cover.out
+	go test ./... -coverprofile cover.out
+open-coverage:
+	go tool cover -html=cover.out
 run:  ## Builds & Runs the application
 	go build . && ./rtsp-stream
 docker-build:  ## Builds normal docker container
