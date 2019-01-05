@@ -2,12 +2,12 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -17,16 +17,40 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ErrUnexpected describes an unexpected error
+var ErrUnexpected = errors.New("Unexpected error")
+
+// ErrDirectoryNotCreated is sent when the system cannot create the directory for the URI
+var ErrDirectoryNotCreated = errors.New("Could not create directory for URI")
+
+// ErrTimeout describes an error related to timing out
+var ErrTimeout = errors.New("Timeout error")
+
+// ErrDTO describes a DTO that has a message as an error
+type ErrDTO struct {
+	Error string `json:"error"`
+}
+
 // Controller holds all handler functions for the API
 type Controller struct {
 	spec       *config.Specification
 	streams    map[string]*streaming.Stream
 	fileServer http.Handler
+	manager    IManager
+	processor  streaming.IProcessor
 }
 
 // NewController creates a new instance of Controller
 func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
-	return &Controller{spec, map[string]*streaming.Stream{}, fileServer}
+	return &Controller{spec, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.NewProcessor(spec.StoreDir)}
+}
+
+// SendError sends an error to the client
+func (c *Controller) SendError(w http.ResponseWriter, err error, status int) {
+	w.Header().Add("Content-Type", "application/json")
+	b, _ := json.Marshal(ErrDTO{Error: err.Error()})
+	w.WriteHeader(status)
+	w.Write(b)
 }
 
 // ListStreamHandler is the HTTP handler of the /list call
@@ -37,7 +61,7 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 	}
 	b, err := json.Marshal(dto)
 	if err != nil {
-		http.Error(w, "Internal server error", 500)
+		c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -48,36 +72,36 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var dto streamDto
 	if err := validateURI(&dto, r.Body); err != nil {
-		http.Error(w, err.Error(), 400)
+		logrus.Error(err)
+		c.SendError(w, err, http.StatusBadRequest)
 		return
 	}
 	// Calculate directory from URI
 	dir, err := streaming.GetURIDirectory(dto.URI)
 	if err != nil {
 		logrus.Error(err)
-		http.Error(w, "Could not create directory for URI", 500)
+		c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
 		return
 	}
 	if stream, ok := c.streams[dir]; ok {
-		handleAlreadyRunningStream(w, stream, c.spec, dir)
+		c.handleAlreadyRunningStream(w, stream, c.spec, dir)
 		return
 	}
-	streamResolved := make(chan bool)
+	streamResolved := c.startStream(dto.URI, dir, c.spec)
 	defer close(streamResolved)
-	go c.startStream(dto.URI, dir, c.spec, streamResolved)
 	select {
-	case <-time.After(time.Second * 10):
-		http.Error(w, "Timeout error", 408)
+	case <-time.After(time.Second * 15):
+		c.SendError(w, ErrTimeout, http.StatusRequestTimeout)
 		return
 	case success := <-streamResolved:
 		if !success {
-			http.Error(w, "Unexpected error", 500)
+			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
 			return
 		}
 		s := c.streams[dir]
 		b, err := json.Marshal(streamDto{URI: s.Path})
 		if err != nil {
-			http.Error(w, "Unexpected error", 500)
+			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
@@ -98,6 +122,28 @@ func (c *Controller) ExitHandler() chan bool {
 		done <- true
 	}()
 	return done
+}
+
+// handleAlreadyRunningStream is for dealing with stream starts that are already initiated before
+func (c *Controller) handleAlreadyRunningStream(w http.ResponseWriter, strm *streaming.Stream, spec *config.Specification, dir string) {
+	// If transcoding is not running, spin it back up
+	if !strm.Streak.IsActive() {
+		err := c.processor.Restart(strm, dir)
+		if err != nil {
+			logrus.Error(err)
+			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
+			return
+		}
+	}
+	// If the stream is already running return its path
+	b, err := json.Marshal(streamDto{URI: strm.Path})
+	if err != nil {
+		logrus.Error(err)
+		c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(b)
 }
 
 // cleanUp stops all running processes
@@ -149,31 +195,17 @@ func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps ht
 		s.Streak.Hit()
 		return
 	}
-	if err := s.Restart(c.spec, hostKey); err != nil {
+	if err := c.processor.Restart(s, hostKey); err != nil {
 		logrus.Error(err)
 		return
 	}
 	s.Streak.Activate().Hit()
 }
 
-func (c *Controller) startStream(uri, dir string, spec *config.Specification, streamResolved chan<- bool) {
+func (c *Controller) startStream(uri, dir string, spec *config.Specification) chan bool {
 	logrus.Infof("%s started processing", dir)
-	cmd, stream, physicalPath := streaming.NewProcess(uri, spec)
+	stream, physicalPath := c.processor.NewStream(uri)
 	c.streams[dir] = stream
-	var once sync.Once
-	go func() {
-		for {
-			_, err := os.Stat(physicalPath)
-			if err != nil {
-				<-time.After(25 * time.Millisecond)
-				continue
-			}
-			once.Do(func() { streamResolved <- true })
-			return
-		}
-	}()
-	if err := cmd.Run(); err != nil {
-		logrus.Error(err)
-		once.Do(func() { streamResolved <- false })
-	}
+	ch := c.manager.Start(stream.CMD, physicalPath)
+	return ch
 }

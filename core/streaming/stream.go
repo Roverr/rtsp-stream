@@ -6,8 +6,6 @@ import (
 	"sync"
 
 	"github.com/Roverr/hotstreak"
-	"github.com/Roverr/rtsp-stream/core/config"
-	"github.com/sirupsen/logrus"
 )
 
 // Stream describes a given host's streaming
@@ -17,22 +15,6 @@ type Stream struct {
 	Path        string               `json:"path"`
 	Streak      *hotstreak.Hotstreak `json:"-"`
 	OriginalURI string               `json:"-"`
-}
-
-// Restart is a function to restart a given stream's transcoding process
-func (strm *Stream) Restart(spec *config.Specification, path string) error {
-	strm.Mux.Lock()
-	defer strm.Mux.Unlock()
-	strm.CMD, _, _ = NewProcess(strm.OriginalURI, spec)
-	strm.Streak.Activate()
-	go func() {
-		logrus.Infof("%s has been restarted", path)
-		err := strm.CMD.Run()
-		if err != nil {
-			logrus.Error(err)
-		}
-	}()
-	return nil
 }
 
 // CleanProcess makes sure that the transcoding process is killed correctly

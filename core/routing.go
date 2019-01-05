@@ -14,7 +14,6 @@ import (
 	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
-	"github.com/sirupsen/logrus"
 )
 
 // ErrNoStreamFn is used to create dynamic errors for unknown hosts requested as stream
@@ -51,26 +50,6 @@ func validateURI(dto *streamDto, body io.Reader) error {
 	return nil
 }
 
-func handleAlreadyRunningStream(w http.ResponseWriter, s *streaming.Stream, spec *config.Specification, dir string) {
-	// If transcoding is not running, spin it back up
-	if !s.Streak.IsActive() {
-		err := s.Restart(spec, dir)
-		if err != nil {
-			logrus.Error(err)
-			http.Error(w, "Unexpected error", 500)
-			return
-		}
-	}
-	// If the stream is already running return its path
-	b, err := json.Marshal(streamDto{URI: s.Path})
-	if err != nil {
-		http.Error(w, "Unexpected error", 500)
-		return
-	}
-	w.Header().Add("Content-Type", "application/json")
-	w.Write(b)
-}
-
 // determinesHost is for parsing out the host from the storage path
 func determineHost(path string) string {
 	parts := strings.Split(path, "/")
@@ -84,7 +63,7 @@ func determineHost(path string) string {
 func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
-	controllers := Controller{config, map[string]*streaming.Stream{}, fileServer}
+	controllers := Controller{config, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.Processor{}}
 	if config.ListEndpoint {
 		router.GET("/list", controllers.ListStreamHandler)
 	}
