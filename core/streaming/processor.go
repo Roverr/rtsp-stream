@@ -7,7 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
+	"time"
 
+	"github.com/Roverr/hotstreak"
 	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/kennygrant/sanitize"
 	"github.com/sirupsen/logrus"
@@ -55,11 +58,11 @@ func createDirectoryForURI(URI, storeDir string) (dirPath, newPath string, err e
 }
 
 // NewProcess creates a new transcoding process for ffmpeg
-func NewProcess(URI string, spec *config.Specification) (*exec.Cmd, string, string) {
+func NewProcess(URI string, spec *config.Specification) (*exec.Cmd, *Stream, string) {
 	dirPath, newPath, err := createDirectoryForURI(URI, spec.StoreDir)
 	if err != nil {
 		logrus.Error("Error happened while getting directory name", dirPath)
-		return nil, "", ""
+		return nil, nil, ""
 	}
 
 	cmd := exec.Command(
@@ -99,5 +102,16 @@ func NewProcess(URI string, spec *config.Specification) (*exec.Cmd, string, stri
 		fmt.Sprintf("/stream/%s/", dirPath),
 		newPath+"/%d.ts",
 	)
-	return cmd, filepath.Join("stream", dirPath), fmt.Sprintf("%s/index.m3u8", newPath)
+	stream := Stream{
+		CMD:  cmd,
+		Mux:  &sync.Mutex{},
+		Path: fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", dirPath)),
+		Streak: hotstreak.New(hotstreak.Config{
+			Limit:      10,
+			HotWait:    time.Minute * 2,
+			ActiveWait: time.Minute * 4,
+		}).Activate(),
+		OriginalURI: URI,
+	}
+	return cmd, &stream, fmt.Sprintf("%s/index.m3u8", newPath)
 }

@@ -51,7 +51,7 @@ func validateURI(dto *streamDto, body io.Reader) error {
 	return nil
 }
 
-func handleAlreadyRunningStream(w http.ResponseWriter, s streaming.Stream, spec *config.Specification, dir string) {
+func handleAlreadyRunningStream(w http.ResponseWriter, s *streaming.Stream, spec *config.Specification, dir string) {
 	// If transcoding is not running, spin it back up
 	if !s.Streak.IsActive() {
 		err := s.Restart(spec, dir)
@@ -84,7 +84,7 @@ func determineHost(path string) string {
 func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
-	controllers := Controller{config, map[string]streaming.Stream{}, fileServer}
+	controllers := Controller{config, map[string]*streaming.Stream{}, fileServer}
 	if config.ListEndpoint {
 		router.GET("/list", controllers.ListStreamHandler)
 	}

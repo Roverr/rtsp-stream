@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Roverr/hotstreak"
 	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
@@ -21,13 +20,13 @@ import (
 // Controller holds all handler functions for the API
 type Controller struct {
 	spec       *config.Specification
-	streams    map[string]streaming.Stream
+	streams    map[string]*streaming.Stream
 	fileServer http.Handler
 }
 
 // NewController creates a new instance of Controller
 func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
-	return &Controller{spec, map[string]streaming.Stream{}, fileServer}
+	return &Controller{spec, map[string]*streaming.Stream{}, fileServer}
 }
 
 // ListStreamHandler is the HTTP handler of the /list call
@@ -63,16 +62,18 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		handleAlreadyRunningStream(w, stream, c.spec, dir)
 		return
 	}
-	streamRunning := make(chan bool)
-	defer close(streamRunning)
-	errorIssued := make(chan bool)
-	defer close(errorIssued)
-	c.startStream(dto.URI, dir, c.spec, streamRunning, errorIssued)
+	streamResolved := make(chan bool)
+	defer close(streamResolved)
+	go c.startStream(dto.URI, dir, c.spec, streamResolved)
 	select {
 	case <-time.After(time.Second * 10):
 		http.Error(w, "Timeout error", 408)
 		return
-	case <-streamRunning:
+	case success := <-streamResolved:
+		if !success {
+			http.Error(w, "Unexpected error", 500)
+			return
+		}
 		s := c.streams[dir]
 		b, err := json.Marshal(streamDto{URI: s.Path})
 		if err != nil {
@@ -81,9 +82,6 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		}
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(b)
-	case <-errorIssued:
-		http.Error(w, "Unexpected error", 500)
-		return
 	}
 }
 
@@ -158,20 +156,11 @@ func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps ht
 	s.Streak.Activate().Hit()
 }
 
-func (c *Controller) startStream(uri, dir string, spec *config.Specification, streamRunning chan<- bool, errorIssued chan<- bool) {
+func (c *Controller) startStream(uri, dir string, spec *config.Specification, streamResolved chan<- bool) {
 	logrus.Infof("%s started processing", dir)
-	cmd, path, physicalPath := streaming.NewProcess(uri, spec)
-	c.streams[dir] = streaming.Stream{
-		CMD:  cmd,
-		Mux:  &sync.Mutex{},
-		Path: fmt.Sprintf("/%s/index.m3u8", path),
-		Streak: hotstreak.New(hotstreak.Config{
-			Limit:      10,
-			HotWait:    time.Minute * 2,
-			ActiveWait: time.Minute * 4,
-		}).Activate(),
-		OriginalURI: uri,
-	}
+	cmd, stream, physicalPath := streaming.NewProcess(uri, spec)
+	c.streams[dir] = stream
+	var once sync.Once
 	go func() {
 		for {
 			_, err := os.Stat(physicalPath)
@@ -179,12 +168,12 @@ func (c *Controller) startStream(uri, dir string, spec *config.Specification, st
 				<-time.After(25 * time.Millisecond)
 				continue
 			}
-			streamRunning <- true
+			once.Do(func() { streamResolved <- true })
 			return
 		}
 	}()
 	if err := cmd.Run(); err != nil {
 		logrus.Error(err)
-		errorIssued <- true
+		once.Do(func() { streamResolved <- false })
 	}
 }
