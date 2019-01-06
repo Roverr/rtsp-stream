@@ -112,7 +112,7 @@ func TestController(t *testing.T) {
 		assert.Nil(t, err)
 		b, err := ioutil.ReadAll(res.Body)
 		assert.Nil(t, err)
-		var result []streamDto
+		var result []StreamDto
 		assert.Nil(t, json.Unmarshal(b, &result))
 		assert.Empty(t, result)
 	})
@@ -133,7 +133,7 @@ func TestController(t *testing.T) {
 		assert.Nil(t, err)
 		b, err := ioutil.ReadAll(res.Body)
 		assert.Nil(t, err)
-		var result []streamDto
+		var result []StreamDto
 		assert.Nil(t, json.Unmarshal(b, &result))
 		assert.NotEmpty(t, result)
 		assert.Equal(t, result[0].URI, generated.strm.Path)
@@ -153,7 +153,7 @@ func TestController(t *testing.T) {
 			generated.dirPath: &generated.strm,
 		}
 		generated.strm.Streak.Hit()
-		dto := streamDto{
+		dto := StreamDto{
 			URI: generated.strm.OriginalURI,
 		}
 		b, err := json.Marshal(dto)
@@ -162,7 +162,7 @@ func TestController(t *testing.T) {
 		assert.Nil(t, err)
 		b, err = ioutil.ReadAll(res.Body)
 		assert.Nil(t, err)
-		var result streamDto
+		var result StreamDto
 		assert.Nil(t, json.Unmarshal(b, &result))
 		assert.Equal(t, result.URI, generated.strm.Path)
 	})
@@ -177,7 +177,7 @@ func TestController(t *testing.T) {
 		server := httptest.NewServer(router)
 		defer server.Close()
 
-		dto := streamDto{
+		dto := StreamDto{
 			URI: generateURI(),
 		}
 		dir, err := streaming.GetURIDirectory(dto.URI)
@@ -188,7 +188,7 @@ func TestController(t *testing.T) {
 		assert.Nil(t, err)
 		b, err = ioutil.ReadAll(res.Body)
 		assert.Nil(t, err)
-		var result streamDto
+		var result StreamDto
 		assert.Nil(t, json.Unmarshal(b, &result))
 		strm, ok := ctrls.streams[dir]
 		assert.True(t, ok)
@@ -210,7 +210,7 @@ func TestController(t *testing.T) {
 		ctrls.streams = map[string]*streaming.Stream{
 			generated.dirPath: &generated.strm,
 		}
-		dto := streamDto{
+		dto := StreamDto{
 			URI: generated.strm.OriginalURI,
 		}
 		dir, err := streaming.GetURIDirectory(dto.URI)
@@ -221,7 +221,7 @@ func TestController(t *testing.T) {
 		assert.Nil(t, err)
 		b, err = ioutil.ReadAll(res.Body)
 		assert.Nil(t, err)
-		var result streamDto
+		var result StreamDto
 		assert.Nil(t, json.Unmarshal(b, &result))
 		strm, ok := ctrls.streams[dir]
 		assert.True(t, ok)
@@ -241,7 +241,7 @@ func TestController(t *testing.T) {
 		server := httptest.NewServer(router)
 		defer server.Close()
 
-		dto := streamDto{
+		dto := StreamDto{
 			URI: generateURI(),
 		}
 		b, err := json.Marshal(dto)
@@ -270,7 +270,7 @@ func TestController(t *testing.T) {
 		server := httptest.NewServer(router)
 		defer server.Close()
 
-		dto := streamDto{
+		dto := StreamDto{
 			URI: generateURI(),
 		}
 		b, err := json.Marshal(dto)
