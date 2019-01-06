@@ -88,7 +88,7 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	if stream, ok := c.streams[dir]; ok {
-		c.handleAlreadyRunningStream(w, stream, c.spec, dir)
+		c.handleAlreadyKnownStream(w, stream, c.spec, dir)
 		return
 	}
 	streamResolved := c.startStream(dto.URI, dir, c.spec)
@@ -122,14 +122,13 @@ func (c *Controller) ExitHandler() chan bool {
 	go func() {
 		<-ch
 		c.cleanUp()
-		os.Exit(0)
 		done <- true
 	}()
 	return done
 }
 
-// handleAlreadyRunningStream is for dealing with stream starts that are already initiated before
-func (c *Controller) handleAlreadyRunningStream(w http.ResponseWriter, strm *streaming.Stream, spec *config.Specification, dir string) {
+// handleAlreadyKnownStream is for dealing with stream starts that are already initiated before
+func (c *Controller) handleAlreadyKnownStream(w http.ResponseWriter, strm *streaming.Stream, spec *config.Specification, dir string) {
 	// If transcoding is not running, spin it back up
 	if !strm.Streak.IsActive() {
 		err := c.processor.Restart(strm, dir)

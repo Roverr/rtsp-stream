@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/rs/cors"
 
@@ -28,4 +29,5 @@ func main() {
 	logrus.Infof("RTSP-STREAM started on %d", config.Port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), handler))
 	<-done
+	os.Exit(0)
 }
