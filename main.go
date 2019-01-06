@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/rs/cors"
 
@@ -15,8 +16,8 @@ import (
 func main() {
 	config := config.InitConfig()
 	core.SetupLogger(config)
-	done := core.ExitHandler()
-	router := core.GetRouter(config)
+	router, ctrls := core.GetRouter(config)
+	done := ctrls.ExitHandler()
 	handler := cors.AllowAll().Handler(router)
 	if config.CORS.Enabled {
 		handler = cors.New(cors.Options{
@@ -28,4 +29,5 @@ func main() {
 	logrus.Infof("RTSP-STREAM started on %d", config.Port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), handler))
 	<-done
+	os.Exit(0)
 }

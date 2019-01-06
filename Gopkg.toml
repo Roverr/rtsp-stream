@@ -52,3 +52,11 @@
 [[constraint]]
   name = "github.com/rs/cors"
   version = "1.6.0"
+
+[[constraint]]
+  name = "github.com/kennygrant/sanitize"
+  version = "1.2.4"
+
+[[constraint]]
+  name = "github.com/brianvoe/gofakeit"
+  version = "3.15.0"

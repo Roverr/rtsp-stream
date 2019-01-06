@@ -1,33 +1,14 @@
 package core
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"net/url"
-	"os"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/Roverr/hotstreak"
 	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
-	"github.com/sirupsen/logrus"
 )
-
-// ErrNoStreamFn is used to create dynamic errors for unknown hosts requested as stream
-var ErrNoStreamFn = func(path string) error { return fmt.Errorf("%s is not a known stream", path) }
-
-// ErrStreamAlreadyActive is an error describing that we cannot restart the stream because it's already running
-var ErrStreamAlreadyActive = errors.New("Stream is already active")
-
-// streams keeps track of the streams based on their unique url combination
-var streams = map[string]streaming.Stream{}
 
 // streamDto describes an uri where the client can access the stream
 type streamDto struct {
@@ -40,158 +21,6 @@ type summariseDto struct {
 	URI     string `json:"uri"`
 }
 
-// restartStream is used when a stream is stopped but it gets a new request
-func restartStream(spec *config.Specification, path string) error {
-	stream, ok := streams[path]
-	if !ok {
-		return ErrNoStreamFn(path)
-	}
-	if stream.Streak.IsActive() {
-		return ErrStreamAlreadyActive
-	}
-	stream.Mux.Lock()
-	defer stream.Mux.Unlock()
-	stream.CMD, _, _ = streaming.NewProcess(stream.OriginalURI, spec)
-	stream.Streak.Activate()
-	go func() {
-		logrus.Infof("%s has been restarted", path)
-		err := stream.CMD.Run()
-		if err != nil {
-			logrus.Error(err)
-		}
-	}()
-	return nil
-}
-
-// getListStreamHandler returns the handler for the list endpoint
-func getListStreamHandler() httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		dto := []*summariseDto{}
-		for key, stream := range streams {
-			dto = append(dto, &summariseDto{URI: fmt.Sprintf("/stream/%s/index.m3u8", key), Running: stream.Streak.IsActive()})
-		}
-		b, err := json.Marshal(dto)
-		if err != nil {
-			http.Error(w, "Internal server error", 500)
-			return
-		}
-		w.Header().Add("Content-Type", "application/json")
-		w.Write(b)
-	}
-}
-
-// validateURI is for validiting that the URI is in a valid format
-func validateURI(dto *streamDto, body io.Reader) error {
-	// Parse request
-	uri, err := ioutil.ReadAll(body)
-	if err != nil {
-		return err
-	}
-	if err = json.Unmarshal(uri, dto); err != nil {
-		return err
-	}
-
-	if _, err := url.Parse(dto.URI); err != nil {
-		return errors.New("Invalid URI")
-	}
-	return nil
-}
-
-func startStream(uri, dir string, spec *config.Specification, streamRunning chan<- bool, errorIssued chan<- bool) {
-	logrus.Infof("%s started processing", dir)
-	cmd, path, physicalPath := streaming.NewProcess(uri, spec)
-	streams[dir] = streaming.Stream{
-		CMD:  cmd,
-		Mux:  &sync.Mutex{},
-		Path: fmt.Sprintf("/%s/index.m3u8", path),
-		Streak: hotstreak.New(hotstreak.Config{
-			Limit:      10,
-			HotWait:    time.Minute * 2,
-			ActiveWait: time.Minute * 4,
-		}).Activate(),
-		OriginalURI: uri,
-	}
-	go func() {
-		for {
-			_, err := os.Stat(physicalPath)
-			if err != nil {
-				<-time.After(25 * time.Millisecond)
-				continue
-			}
-			streamRunning <- true
-			return
-		}
-	}()
-	if err := cmd.Run(); err != nil {
-		logrus.Error(err)
-		errorIssued <- true
-	}
-}
-
-func handleAlreadyRunningStream(w http.ResponseWriter, s streaming.Stream, spec *config.Specification, dir string) {
-	// If transcoding is not running, spin it back up
-	if !s.Streak.IsActive() {
-		err := restartStream(spec, dir)
-		if err != nil {
-			logrus.Error(err)
-			http.Error(w, "Unexpected error", 500)
-			return
-		}
-	}
-	// If the stream is already running return its path
-	b, err := json.Marshal(streamDto{URI: s.Path})
-	if err != nil {
-		http.Error(w, "Unexpected error", 500)
-		return
-	}
-	w.Header().Add("Content-Type", "application/json")
-	w.Write(b)
-}
-
-// getStartStreamHandler returns an HTTP handler for the /start endpoint
-func getStartStreamHandler(spec *config.Specification) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		var dto streamDto
-		if err := validateURI(&dto, r.Body); err != nil {
-			http.Error(w, err.Error(), 400)
-			return
-		}
-		// Calculate directory from URI
-		dir, err := streaming.GetURIDirectory(dto.URI)
-		if err != nil {
-			logrus.Error(err)
-			http.Error(w, "Could not create directory for URI", 500)
-			return
-		}
-		if stream, ok := streams[dir]; ok {
-			handleAlreadyRunningStream(w, stream, spec, dir)
-			return
-		}
-		streamRunning := make(chan bool)
-		defer close(streamRunning)
-		errorIssued := make(chan bool)
-		defer close(errorIssued)
-		startStream(dto.URI, dir, spec, streamRunning, errorIssued)
-		select {
-		case <-time.After(time.Second * 10):
-			http.Error(w, "Timeout error", 408)
-			return
-		case <-streamRunning:
-			s := streams[dir]
-			b, err := json.Marshal(streamDto{URI: s.Path})
-			if err != nil {
-				http.Error(w, "Unexpected error", 500)
-				return
-			}
-			w.Header().Add("Content-Type", "application/json")
-			w.Write(b)
-		case <-errorIssued:
-			http.Error(w, "Unexpected error", 500)
-			return
-		}
-	}
-}
-
 // determinesHost is for parsing out the host from the storage path
 func determineHost(path string) string {
 	parts := strings.Split(path, "/")
@@ -201,63 +30,24 @@ func determineHost(path string) string {
 	return ""
 }
 
-// cleanUnusedProcesses is for stopping streams that are running despite having no viewers
-func cleanUnusedProcesses() {
-	for name, data := range streams {
-		// If the streak is active, there is no need for stopping
-		if data.Streak.IsActive() {
-			logrus.Debugf("%s is active, skipping cleaning process", name)
-			continue
-		}
-		logrus.Infof("%s is getting cleaned", name)
-		data.Mux.Lock()
-		defer data.Mux.Unlock()
-		if err := data.CMD.Process.Kill(); err != nil {
-			if strings.Contains(err.Error(), "process already finished") {
-				logrus.Infof("\n%s is cleaned", name)
-				continue
-			}
-			logrus.Error(err)
-		}
-		logrus.Infof("\n%s is cleaned", name)
-	}
-}
-
 // GetRouter returns the return for the application
-func GetRouter(config *config.Specification) *httprouter.Router {
+func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
+	controllers := Controller{config, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.Processor{}, time.Second * 15}
 	if config.ListEndpoint {
-		router.GET("/list", getListStreamHandler())
+		router.GET("/list", controllers.ListStreamHandler)
 	}
-	router.POST("/start", getStartStreamHandler(config))
-	router.GET("/stream/*filepath", func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
-		defer fileServer.ServeHTTP(w, req)
-		filepath := ps.ByName("filepath")
-		req.URL.Path = filepath
-		hostKey := determineHost(filepath)
-		s, ok := streams[hostKey]
-		if !ok {
-			return
-		}
-		if s.Streak.IsActive() {
-			s.Streak.Hit()
-			return
-		}
-		if err := restartStream(config, hostKey); err != nil {
-			logrus.Error(err)
-			return
-		}
-		s.Streak.Activate().Hit()
-	})
+	router.POST("/start", controllers.StartStreamHandler)
+	router.GET("/stream/*filepath", controllers.FileHandler)
 
 	// Start cleaning process in the background
 	go func() {
 		for {
 			<-time.After(config.CleanupTime)
-			cleanUnusedProcesses()
+			controllers.cleanUnused()
 		}
 	}()
 
-	return router
+	return router, &controllers
 }
