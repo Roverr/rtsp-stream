@@ -10,17 +10,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-// streamDto describes an uri where the client can access the stream
-type streamDto struct {
-	URI string `json:"uri"`
-}
-
-// summariseDto describes each stream and their state of running
-type summariseDto struct {
-	Running bool   `json:"running"`
-	URI     string `json:"uri"`
-}
-
 // determinesHost is for parsing out the host from the storage path
 func determineHost(path string) string {
 	parts := strings.Split(path, "/")
