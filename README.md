@@ -85,3 +85,11 @@ You should expect something like this:
 
 
 <img src="./ui.gif"/>
+
+
+## Coming soon features
+
+* Proper logging - File logging for the output of ffmpeg with the option of rotating file log
+* Improved cleanup - Unused streams should be removed from the system after a while
+* Authentication layer - More options for creating authentication within the service
+* API improvements - Delete endpoint for streams so clients can remove streams whenever they would like to
