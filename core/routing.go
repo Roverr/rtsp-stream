@@ -27,6 +27,9 @@ func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 	if config.ListEndpoint {
 		router.GET("/list", controllers.ListStreamHandler)
 	}
+	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.WriteHeader(http.StatusOK)
+	})
 	router.POST("/start", controllers.StartStreamHandler)
 	router.GET("/stream/*filepath", controllers.FileHandler)
 
