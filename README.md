@@ -3,8 +3,16 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Roverr/rtsp-stream)](https://goreportcard.com/report/github.com/Roverr/rtsp-stream)
  [![Maintainability](https://api.codeclimate.com/v1/badges/202152e83296250ab527/maintainability)](https://codeclimate.com/github/Roverr/rtsp-stream/maintainability)
 
-
 rtsp-stream is an easy to use out of box solution that can be integrated into existing systems resolving the problem of not being able to play rtsp stream natively in browsers. 
+
+## Table of contents
+* [How does it work](https://github.com/Roverr/rtsp-stream#how-does-it-work)
+* [Easy API](https://github.com/Roverr/rtsp-stream#easy-api)
+* [Configuration](https://github.com/Roverr/rtsp-stream#configuration)
+* [Run with Docker](https://github.com/Roverr/rtsp-stream#run-with-docker)
+* [UI](https://github.com/Roverr/rtsp-stream#ui)
+* [Coming soon features](https://github.com/Roverr/rtsp-stream#coming-soon-features)
+
 
 ## How does it work
 It converts `RTSP` streams into `HLS` based on traffic. The idea behind this is that the application should not transcode anything until someone is actually watching the stream. This can help with network bottlenecks in systems where there are a lot of cameras installed.
