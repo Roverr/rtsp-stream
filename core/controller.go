@@ -57,7 +57,8 @@ type Controller struct {
 
 // NewController creates a new instance of Controller
 func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
-	return &Controller{spec, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.NewProcessor(spec.StoreDir), time.Second * 15}
+	manager := NewManager(time.Second * 10)
+	return &Controller{spec, map[string]*streaming.Stream{}, fileServer, *manager, streaming.NewProcessor(spec.StoreDir), time.Second * 15}
 }
 
 // SendError sends an error to the client

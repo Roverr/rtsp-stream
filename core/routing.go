@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Roverr/rtsp-stream/core/config"
-	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -23,7 +22,7 @@ func determineHost(path string) string {
 func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
-	controllers := Controller{config, map[string]*streaming.Stream{}, fileServer, Manager{}, streaming.Processor{}, time.Second * 15}
+	controllers := NewController(config, fileServer)
 	if config.ListEndpoint {
 		router.GET("/list", controllers.ListStreamHandler)
 	}
@@ -41,5 +40,5 @@ func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 		}
 	}()
 
-	return router, &controllers
+	return router, controllers
 }
