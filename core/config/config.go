@@ -15,6 +15,12 @@ type CORS struct {
 	MaxAge           int      `envconfig:"CORS_MAX_AGE" default:"0"`               // Indicates how long (in seconds) the results of a preflight request can be cached.
 }
 
+// Auth describes information regarding authentication
+type Auth struct {
+	JWTEnabled bool   `envconfig:"AUTH_JWT_ENABLED" default:"true"`    // Indicates if JWT authentication is enabled or not
+	JWTSecret  string `envconfig:"AUTH_JWT_SECRET" default:"macilaci"` // Secret of the JWT encryption
+}
+
 // Specification describes the application context settings
 type Specification struct {
 	Debug        bool          `envconfig:"DEBUG" default:"false"`         // Indicates if debug log should be enabled or not
@@ -24,6 +30,7 @@ type Specification struct {
 	ListEndpoint bool          `envconfig:"LIST_ENDPOINT" default:"false"` // Turns on / off the stream listing endpoint feature
 
 	CORS
+	Auth
 }
 
 // InitConfig is to initalise the config

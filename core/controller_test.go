@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Roverr/hotstreak"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/Roverr/rtsp-stream/core/config"
@@ -25,6 +26,7 @@ import (
 
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().UTC().UnixNano())
+	os.Setenv("AUTH_JWT_ENABLED", "false")
 	os.Exit(m.Run())
 }
 
@@ -109,6 +111,47 @@ func TestController(t *testing.T) {
 		defer server.Close()
 
 		res, err := http.Get(fmt.Sprintf("%s/list", server.URL))
+		assert.Nil(t, err)
+		b, err := ioutil.ReadAll(res.Body)
+		assert.Nil(t, err)
+		var result []StreamDto
+		assert.Nil(t, json.Unmarshal(b, &result))
+		assert.Empty(t, result)
+	})
+
+	t.Run("Should be blocked if auth is on and no token available", func(t *testing.T) {
+		conf := config.InitConfig()
+		conf.JWTEnabled = true
+		ctrls := NewController(conf, fileServer)
+		router := httprouter.New()
+		router.GET("/list", ctrls.ListStreamHandler)
+		router.POST("/start", ctrls.StartStreamHandler)
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		res, err := http.Get(fmt.Sprintf("%s/list", server.URL))
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusForbidden, res.StatusCode)
+	})
+
+	t.Run("Should get list back if authenticated", func(t *testing.T) {
+		conf := config.InitConfig()
+		conf.JWTEnabled = true
+		ctrls := NewController(conf, fileServer)
+		router := httprouter.New()
+		router.GET("/list", ctrls.ListStreamHandler)
+		router.POST("/start", ctrls.StartStreamHandler)
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{})
+		tokenString, err := token.SignedString([]byte("macilaci"))
+		assert.Nil(t, err)
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/list", server.URL), nil)
+		assert.Nil(t, err)
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
+
+		res, err := (&http.Client{}).Do(req)
 		assert.Nil(t, err)
 		b, err := ioutil.ReadAll(res.Body)
 		assert.Nil(t, err)

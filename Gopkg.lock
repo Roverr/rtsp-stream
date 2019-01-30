@@ -29,6 +29,14 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
+  version = "v3.2.0"
+
+[[projects]]
   digest = "1:f97285a3b0a496dcf8801072622230d513f69175665d94de60eb042d03387f6c"
   name = "github.com/julienschmidt/httprouter"
   packages = ["."]
@@ -128,6 +136,7 @@
   input-imports = [
     "github.com/Roverr/hotstreak",
     "github.com/brianvoe/gofakeit",
+    "github.com/dgrijalva/jwt-go",
     "github.com/julienschmidt/httprouter",
     "github.com/kelseyhightower/envconfig",
     "github.com/kennygrant/sanitize",

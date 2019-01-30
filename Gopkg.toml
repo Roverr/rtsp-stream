@@ -60,3 +60,7 @@
 [[constraint]]
   name = "github.com/brianvoe/gofakeit"
   version = "3.15.0"
+
+[[constraint]]
+  name = "github.com/dgrijalva/jwt-go"
+  version = "3.2.0"
