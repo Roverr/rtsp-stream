@@ -17,7 +17,7 @@ type CORS struct {
 
 // Auth describes information regarding authentication
 type Auth struct {
-	JWTEnabled bool   `envconfig:"AUTH_JWT_ENABLED" default:"true"`    // Indicates if JWT authentication is enabled or not
+	JWTEnabled bool   `envconfig:"AUTH_JWT_ENABLED" default:"false"`   // Indicates if JWT authentication is enabled or not
 	JWTSecret  string `envconfig:"AUTH_JWT_SECRET" default:"macilaci"` // Secret of the JWT encryption
 }
 

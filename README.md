@@ -7,6 +7,9 @@ rtsp-stream is an easy to use out of box solution that can be integrated into ex
 
 ## Table of contents
 * [How does it work](https://github.com/Roverr/rtsp-stream#how-does-it-work)
+* [Authentication](https://github.com/Roverr/rtsp-stream#authentication)
+    * [No Authentication](https://github.com/Roverr/rtsp-stream#no-authentication)
+    * [JWT](https://github.com/Roverr/rtsp-stream#jwt-authentication)
 * [Easy API](https://github.com/Roverr/rtsp-stream#easy-api)
 * [Configuration](https://github.com/Roverr/rtsp-stream#configuration)
 * [Run with Docker](https://github.com/Roverr/rtsp-stream#run-with-docker)
@@ -18,6 +21,37 @@ rtsp-stream is an easy to use out of box solution that can be integrated into ex
 It converts `RTSP` streams into `HLS` based on traffic. The idea behind this is that the application should not transcode anything until someone is actually watching the stream. This can help with network bottlenecks in systems where there are a lot of cameras installed.
 
 There's a running go routine in the background that checks if a stream is being active or not. If it's not the transcoding stops until the next request for that stream.
+
+## Authentication
+
+The application offers different ways for authentication. There are situations when you can get away with no authentication, just
+trusting requests because they are from reliable sources or just because they know how to use the API. In other cases, production cases, you definitely
+want to protect the service. This application was not written to handle users and logins, so authentication is as lightweight as possible.
+
+
+### No Authentication
+
+**By default there is no authentication** what so ever. This can be useful if you have private subnets
+where there is no real way to reach the service from the internet. (So every request is kind of trusted.) Also works great
+if you just wanna try it out, maybe for home use.
+
+
+### JWT Authentication
+
+You can use shared key JWT authentication for the service.
+
+The service itself does not create any tokens, but your authentication service can create.
+After it's created it can be validated in the transcoder using the same secret / keys.
+It is the easiest way to integrate into existing systems.
+The following environment variables are available for this setup:
+
+* **RTSP_STREAM_AUTH_JWT_ENABLED** - bool (false by default) - Indicates if the service should use the JWT authentication for the requests
+* **RTPS_STREAM_AUTH_JWT_SECRET** - string - The secret used for creating the JWT tokens
+* **RTSP_STREAM_AUTH_JWT_PRIV_PATH** - string (/key by default) - Path to the private RSA key.
+* **RTSP_STREAM_AUTH_JWT_PUB_PATH** - string (/key.pub by default) - Path to the public RSA key.
+* **RTSP_STREAM_AUTH_JWT_METHOD** - string (secret by default) - Can be `secret` or `rsa`. Changes how the application does the JWT verification.
+
+<img src="./transcoder_auth.png"/>
 
 ## Easy API
 **There are 2 main endpoints to call:**
