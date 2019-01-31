@@ -58,6 +58,11 @@ The following environment variables are available for this setup:
 
 `POST /start`
 
+Starts the transcoding of the given stream. You have to pass URI format with rtsp procotol. 
+The respond should be considered the subpath for the video player to call.
+So if your applicaiton is `myapp.com` then you should call `myapp.com/stream/host/index.m3u8` in your video player.
+The reason for this is to remain flexible regarding useability. 
+
 Requires payload:
 ```js
 { "uri": "rtsp://username:password@host" }
@@ -73,11 +78,17 @@ Response:
 
 Simple static file serving which is used when fetching chunks of `HLS`. This will be called by the client (browser) to fetch the chunks of the stream based on the given `index.m3u8`
 <hr>
-And there is also a third one which can be used for debugging (but you have to enable it via env variable)
 
 `GET /list`
 
-Lists all streams that are stored in the system along with their state of running:
+This (kind of a debug) endpoint is used to list the streams in the system. 
+Since the application does not handle users, it does not handle permissions obviously. 
+You might not want everyone to be able to list the streams 
+available in the system. But if you do, you can use this. You just have to enable it via [env variable](https://github.com/Roverr/rtsp-stream#configuration).
+
+
+
+Response:
 ```js
 [
     {
@@ -86,7 +97,6 @@ Lists all streams that are stored in the system along with their state of runnin
     }
 ]
 ``` 
-<hr>
 
 ## Configuration
 
@@ -131,7 +141,11 @@ You should expect something like this:
 
 ## Coming soon features
 
-* Proper logging - File logging for the output of ffmpeg with the option of rotating file log
-* Improved cleanup - Unused streams should be removed from the system after a while
-* Authentication layer - More options for creating authentication within the service
-* API improvements - Delete endpoint for streams so clients can remove streams whenever they would like to
+✅ - Done
+
+🤷‍♂️ - Needs more labour
+
+* 🤷‍♂️ Proper logging - File logging for the output of ffmpeg with the option of rotating file log
+* 🤷‍♂️ Improved cleanup - Unused streams should be removed from the system after a while
+* 🤷‍♂️ API improvements - Delete endpoint for streams so clients can remove streams whenever they would like to
+* ✅  Authentication layer - More options for creating authentication within the service
