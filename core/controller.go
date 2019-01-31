@@ -60,6 +60,10 @@ type Controller struct {
 // NewController creates a new instance of Controller
 func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
 	manager := NewManager(time.Second * 10)
+	provider, err := auth.NewJWTProvider(spec.Auth)
+	if err != nil {
+		logrus.Fatal("Could not create new JWT provider: ", err)
+	}
 	return &Controller{
 		spec,
 		map[string]*streaming.Stream{},
@@ -67,7 +71,7 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 		*manager,
 		streaming.NewProcessor(spec.StoreDir),
 		time.Second * 15,
-		auth.NewJWTProvider(spec.Auth.JWTSecret),
+		provider,
 	}
 }
 

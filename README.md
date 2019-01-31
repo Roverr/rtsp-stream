@@ -46,10 +46,11 @@ It is the easiest way to integrate into existing systems.
 The following environment variables are available for this setup:
 
 * **RTSP_STREAM_AUTH_JWT_ENABLED** - bool (false by default) - Indicates if the service should use the JWT authentication for the requests
-* **RTPS_STREAM_AUTH_JWT_SECRET** - string - The secret used for creating the JWT tokens
-* **RTSP_STREAM_AUTH_JWT_PRIV_PATH** - string (/key by default) - Path to the private RSA key.
+* **RTPS_STREAM_AUTH_JWT_SECRET** - string (macilaci by default) - The secret used for creating the JWT tokens
 * **RTSP_STREAM_AUTH_JWT_PUB_PATH** - string (/key.pub by default) - Path to the public RSA key.
 * **RTSP_STREAM_AUTH_JWT_METHOD** - string (secret by default) - Can be `secret` or `rsa`. Changes how the application does the JWT verification.
+
+You won't need the private key for it because no signing happens in this application.
 
 <img src="./transcoder_auth.png"/>
 

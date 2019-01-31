@@ -17,8 +17,10 @@ type CORS struct {
 
 // Auth describes information regarding authentication
 type Auth struct {
-	JWTEnabled bool   `envconfig:"AUTH_JWT_ENABLED" default:"false"`   // Indicates if JWT authentication is enabled or not
-	JWTSecret  string `envconfig:"AUTH_JWT_SECRET" default:"macilaci"` // Secret of the JWT encryption
+	JWTEnabled    bool   `envconfig:"AUTH_JWT_ENABLED" default:"false"`      // Indicates if JWT authentication is enabled or not
+	JWTSecret     string `envconfig:"AUTH_JWT_SECRET" default:"macilaci"`    // Secret of the JWT encryption
+	JWTMethod     string `envconfig:"AUTH_JWT_METHOD" default:"secret"`      // Can be "secret" or "rsa", defines the decoding method
+	JWTPubKeyPath string `envconfig:"AUTH_JWT_PUB_PATH" default:"./key.pub"` // Path to the public RSA key
 }
 
 // Specification describes the application context settings

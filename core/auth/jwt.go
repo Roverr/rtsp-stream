@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"crypto/rsa"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
+	"github.com/Roverr/rtsp-stream/core/config"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/sirupsen/logrus"
 )
@@ -15,15 +18,29 @@ type JWT interface {
 
 // JWTProvider implements the validate method
 type JWTProvider struct {
-	secret []byte
+	secret    []byte
+	verifyKey *rsa.PublicKey
 }
 
 // Implementation check
 var _ JWT = (*JWTProvider)(nil)
 
 // NewJWTProvider returns a new pointer for the created provider
-func NewJWTProvider(secret string) *JWTProvider {
-	return &JWTProvider{[]byte(secret)}
+func NewJWTProvider(settings config.Auth) (*JWTProvider, error) {
+	switch strings.ToLower(settings.JWTMethod) {
+	case "rsa":
+		verifyBytes, err := ioutil.ReadFile(settings.JWTPubKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		verifyKey, err := jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
+		if err != nil {
+			return nil, err
+		}
+		return &JWTProvider{verifyKey: verifyKey}, nil
+	default:
+		return &JWTProvider{secret: []byte(settings.JWTSecret)}, nil
+	}
 }
 
 // Validate is for validating if the given token is authenticated
@@ -39,8 +56,11 @@ func (jp JWTProvider) Validate(tokenString string) bool {
 
 // verify is to check the signing method and return the secret
 func (jp JWTProvider) verify(token *jwt.Token) (interface{}, error) {
-	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-		return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); ok {
+		return jp.secret, nil
 	}
-	return jp.secret, nil
+	if _, ok := token.Method.(*jwt.SigningMethodRSA); ok {
+		return jp.verifyKey, nil
+	}
+	return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 }
