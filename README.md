@@ -103,11 +103,11 @@ Response:
 
 You can configure the following settings in the application with environment variables:
 
-* `RTSP_STREAM_CLEANUP_TIME` - bool - Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration) default: `2m0s`
-* `RTSP_STREAM_STORE_DIR` - string - Sub directory to store video chunks
-* `RTSP_STREAM_PORT` - number - Port where the application listens
-* `RTSP_STREAM_DEBUG` - bool - Turns on / off debug logging
-* `RTSP_STREAM_LIST_ENDPOINT` - bool - Turns on / off the `/list` endpoint
+* `RTSP_STREAM_CLEANUP_TIME` - string (2m0s by default) - Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration)
+* `RTSP_STREAM_STORE_DIR` - string (./videos by default) - Sub directory to store video chunks
+* `RTSP_STREAM_PORT` - number (8080 by default) - Port where the application listens
+* `RTSP_STREAM_DEBUG` - bool (false by default) - Turns on / off debug logging
+* `RTSP_STREAM_LIST_ENDPOINT` - bool (false by default) - Turns on / off the `/list` endpoint
 
 **CORS related configuration:**
 
