@@ -7,6 +7,9 @@ rtsp-stream is an easy to use out of box solution that can be integrated into ex
 
 ## Table of contents
 * [How does it work](https://github.com/Roverr/rtsp-stream#how-does-it-work)
+* [Authentication](https://github.com/Roverr/rtsp-stream#authentication)
+    * [No Authentication](https://github.com/Roverr/rtsp-stream#no-authentication)
+    * [JWT](https://github.com/Roverr/rtsp-stream#jwt-authentication)
 * [Easy API](https://github.com/Roverr/rtsp-stream#easy-api)
 * [Configuration](https://github.com/Roverr/rtsp-stream#configuration)
 * [Run with Docker](https://github.com/Roverr/rtsp-stream#run-with-docker)
@@ -19,10 +22,47 @@ It converts `RTSP` streams into `HLS` based on traffic. The idea behind this is 
 
 There's a running go routine in the background that checks if a stream is being active or not. If it's not the transcoding stops until the next request for that stream.
 
+## Authentication
+
+The application offers different ways for authentication. There are situations when you can get away with no authentication, just
+trusting requests because they are from reliable sources or just because they know how to use the API. In other cases, production cases, you definitely
+want to protect the service. This application was not written to handle users and logins, so authentication is as lightweight as possible.
+
+
+### No Authentication
+
+**By default there is no authentication** what so ever. This can be useful if you have private subnets
+where there is no real way to reach the service from the internet. (So every request is kind of trusted.) Also works great
+if you just wanna try it out, maybe for home use.
+
+
+### JWT Authentication
+
+You can use shared key JWT authentication for the service.
+
+The service itself does not create any tokens, but your authentication service can create.
+After it's created it can be validated in the transcoder using the same secret / keys.
+It is the easiest way to integrate into existing systems.
+The following environment variables are available for this setup:
+
+* **RTSP_STREAM_AUTH_JWT_ENABLED** - bool (false by default) - Indicates if the service should use the JWT authentication for the requests
+* **RTPS_STREAM_AUTH_JWT_SECRET** - string (macilaci by default) - The secret used for creating the JWT tokens
+* **RTSP_STREAM_AUTH_JWT_PUB_PATH** - string (/key.pub by default) - Path to the public RSA key.
+* **RTSP_STREAM_AUTH_JWT_METHOD** - string (secret by default) - Can be `secret` or `rsa`. Changes how the application does the JWT verification.
+
+You won't need the private key for it because no signing happens in this application.
+
+<img src="./transcoder_auth.png"/>
+
 ## Easy API
 **There are 2 main endpoints to call:**
 
 `POST /start`
+
+Starts the transcoding of the given stream. You have to pass URI format with rtsp procotol. 
+The respond should be considered the subpath for the video player to call.
+So if your applicaiton is `myapp.com` then you should call `myapp.com/stream/host/index.m3u8` in your video player.
+The reason for this is to remain flexible regarding useability. 
 
 Requires payload:
 ```js
@@ -39,11 +79,17 @@ Response:
 
 Simple static file serving which is used when fetching chunks of `HLS`. This will be called by the client (browser) to fetch the chunks of the stream based on the given `index.m3u8`
 <hr>
-And there is also a third one which can be used for debugging (but you have to enable it via env variable)
 
 `GET /list`
 
-Lists all streams that are stored in the system along with their state of running:
+This (kind of a debug) endpoint is used to list the streams in the system. 
+Since the application does not handle users, it does not handle permissions obviously. 
+You might not want everyone to be able to list the streams 
+available in the system. But if you do, you can use this. You just have to enable it via [env variable](https://github.com/Roverr/rtsp-stream#configuration).
+
+
+
+Response:
 ```js
 [
     {
@@ -52,17 +98,16 @@ Lists all streams that are stored in the system along with their state of runnin
     }
 ]
 ``` 
-<hr>
 
 ## Configuration
 
 You can configure the following settings in the application with environment variables:
 
-* `RTSP_STREAM_CLEANUP_TIME` - bool - Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration) default: `2m0s`
-* `RTSP_STREAM_STORE_DIR` - string - Sub directory to store video chunks
-* `RTSP_STREAM_PORT` - number - Port where the application listens
-* `RTSP_STREAM_DEBUG` - bool - Turns on / off debug logging
-* `RTSP_STREAM_LIST_ENDPOINT` - bool - Turns on / off the `/list` endpoint
+* `RTSP_STREAM_CLEANUP_TIME` - string (2m0s by default) - Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration)
+* `RTSP_STREAM_STORE_DIR` - string (./videos by default) - Sub directory to store video chunks
+* `RTSP_STREAM_PORT` - number (8080 by default) - Port where the application listens
+* `RTSP_STREAM_DEBUG` - bool (false by default) - Turns on / off debug logging
+* `RTSP_STREAM_LIST_ENDPOINT` - bool (false by default) - Turns on / off the `/list` endpoint
 
 **CORS related configuration:**
 
@@ -97,7 +142,11 @@ You should expect something like this:
 
 ## Coming soon features
 
-* Proper logging - File logging for the output of ffmpeg with the option of rotating file log
-* Improved cleanup - Unused streams should be removed from the system after a while
-* Authentication layer - More options for creating authentication within the service
-* API improvements - Delete endpoint for streams so clients can remove streams whenever they would like to
+✅ - Done
+
+🤷‍♂️ - Needs more labour
+
+* 🤷‍♂️ Proper logging - File logging for the output of ffmpeg with the option of rotating file log
+* 🤷‍♂️ Improved cleanup - Unused streams should be removed from the system after a while
+* 🤷‍♂️ API improvements - Delete endpoint for streams so clients can remove streams whenever they would like to
+* ✅  Authentication layer - More options for creating authentication within the service

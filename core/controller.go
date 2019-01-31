@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Roverr/rtsp-stream/core/auth"
 	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
@@ -53,12 +54,25 @@ type Controller struct {
 	manager    IManager
 	processor  streaming.IProcessor
 	timeout    time.Duration
+	jwt        auth.JWT
 }
 
 // NewController creates a new instance of Controller
 func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
 	manager := NewManager(time.Second * 10)
-	return &Controller{spec, map[string]*streaming.Stream{}, fileServer, *manager, streaming.NewProcessor(spec.StoreDir), time.Second * 15}
+	provider, err := auth.NewJWTProvider(spec.Auth)
+	if err != nil {
+		logrus.Fatal("Could not create new JWT provider: ", err)
+	}
+	return &Controller{
+		spec,
+		map[string]*streaming.Stream{},
+		fileServer,
+		*manager,
+		streaming.NewProcessor(spec.StoreDir),
+		time.Second * 15,
+		provider,
+	}
 }
 
 // SendError sends an error to the client
@@ -69,8 +83,21 @@ func (c *Controller) SendError(w http.ResponseWriter, err error, status int) {
 	w.Write(b)
 }
 
+// isAuthenticated is for checking if the user's request is valid or not
+// from a given authentication strategy's perspective
+func (c *Controller) isAuthenticated(r *http.Request) bool {
+	if c.spec.JWTEnabled {
+		return c.jwt.Validate(r.Header.Get("Authorization"))
+	}
+	return true
+}
+
 // ListStreamHandler is the HTTP handler of the /list call
 func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if !c.isAuthenticated(r) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 	dto := []*SummariseDto{}
 	for key, stream := range c.streams {
 		dto = append(dto, &SummariseDto{URI: fmt.Sprintf("/stream/%s/index.m3u8", key), Running: stream.Streak.IsActive()})
@@ -86,6 +113,10 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 
 // StartStreamHandler is an HTTP handler for the /start endpoint
 func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if !c.isAuthenticated(r) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 	var dto StreamDto
 	if err := c.marshalValidatedURI(&dto, r.Body); err != nil {
 		logrus.Error(err)
@@ -198,6 +229,10 @@ func (c *Controller) cleanUnused() {
 
 // FileHandler is HTTP handler for direct file requests
 func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	if !c.isAuthenticated(req) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 	defer c.fileServer.ServeHTTP(w, req)
 	filepath := ps.ByName("filepath")
 	req.URL.Path = filepath
