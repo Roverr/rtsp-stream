@@ -71,19 +71,19 @@ func TestCreateDirectories(t *testing.T) {
 		{
 			Input:   "rtsp://test:test@192.168.0.1/Streaming/Channels/101",
 			DirPath: "192-168-0-1-streaming-channels-101",
-			NewPath: "test/192-168-0-1-streaming-channels-101",
+			NewPath: "./test/192-168-0-1-streaming-channels-101",
 			Err:     nil,
 		},
 		{
 			Input:   "rtsp://test:test@../../../etc/ssl",
 			DirPath: "-etc-ssl",
-			NewPath: "test/-etc-ssl",
+			NewPath: "./test/-etc-ssl",
 			Err:     nil,
 		},
 		{
 			Input:   "rtsp://test:test@127.0.0.1/I am a long url's_-?ASDF@£$%£%^é.html",
 			DirPath: "127-0-0-1-i-am-a-long-urls-",
-			NewPath: "test/127-0-0-1-i-am-a-long-urls-",
+			NewPath: "./test/127-0-0-1-i-am-a-long-urls-",
 			Err:     nil,
 		},
 	}

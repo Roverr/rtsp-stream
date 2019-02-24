@@ -51,15 +51,17 @@ func (m Manager) Start(cmd *exec.Cmd, physicalPath string) chan bool {
 	// Run the transcoding, resolve stream if it errors out
 	go func() {
 		if err := cmd.Run(); err != nil {
-			logrus.Error(err)
-			once.Do(func() { streamResolved <- false })
+			once.Do(func() {
+				logrus.Error(err)
+				streamResolved <- false
+			})
 		}
 	}()
 
 	// After a certain time if nothing happens, just error it out
 	go func() {
 		<-time.After(m.timeout)
-		logrus.Error(fmt.Errorf("%s timed out while waiting for file creaton in manager start", physicalPath))
+		logrus.Error(fmt.Errorf("%s timed out while waiting for file creation in manager start", physicalPath))
 		once.Do(func() { streamResolved <- false })
 	}()
 

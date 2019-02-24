@@ -55,7 +55,7 @@ func generateStream(hs *hotstreak.Hotstreak, URI string) generatedStream {
 	}
 	return generatedStream{
 		strm: streaming.Stream{
-			Mux:         &sync.Mutex{},
+			Mux:         &sync.RWMutex{},
 			Path:        fmt.Sprintf("/stream/%s/index.m3u8", dirPath),
 			OriginalURI: uri,
 			Streak:      streak,
