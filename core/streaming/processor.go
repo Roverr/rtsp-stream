@@ -109,9 +109,7 @@ func (p Processor) NewStream(URI string) (*Stream, string) {
 		}).Activate(),
 		OriginalURI: URI,
 	}
-	logrus.Infof("dirPath: %s", dirPath)
-	logrus.Infof("newPath: %s", newPath)
-	logrus.Infof("Created stream with storepath %s", stream.StorePath)
+	logrus.Debugf("Created stream with storepath %s", stream.StorePath)
 	return &stream, fmt.Sprintf("%s/index.m3u8", newPath)
 }
 

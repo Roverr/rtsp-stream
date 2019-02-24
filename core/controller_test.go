@@ -80,6 +80,15 @@ func (m mockManager) Start(cmd *exec.Cmd, physicalPath string) chan bool {
 	return streamResolved
 }
 
+func (m mockManager) WaitForStream(path string) chan bool {
+	if m.instead != nil {
+		return (*m.instead)(path)
+	}
+	streamResolved := make(chan bool, 1)
+	streamResolved <- m.resolve
+	return streamResolved
+}
+
 type mockProcessor struct{}
 
 var _ streaming.IProcessor = (*mockProcessor)(nil)

@@ -1,7 +1,6 @@
 package streaming
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -42,7 +41,7 @@ func (strm *Stream) CleanProcess() error {
 
 // cleanDir cleans the directory that includes files of the already stopped stream
 func (strm *Stream) cleanDir() {
-	logrus.Infoln(fmt.Sprintf("%s directory is being cleaned", strm.StorePath))
+	logrus.Debugf("%s directory is being cleaned", strm.StorePath)
 	if err := os.RemoveAll(strm.StorePath); err != nil {
 		logrus.Error(err)
 	}

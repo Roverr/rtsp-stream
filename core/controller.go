@@ -59,7 +59,7 @@ type Controller struct {
 
 // NewController creates a new instance of Controller
 func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
-	manager := NewManager(time.Second * 10)
+	manager := NewManager(time.Second * 20)
 	provider, err := auth.NewJWTProvider(spec.Auth)
 	if err != nil {
 		logrus.Fatal("Could not create new JWT provider: ", err)
@@ -238,11 +238,13 @@ func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps ht
 		s.Streak.Hit()
 		return
 	}
-	logrus.Infof("Initiating restart for %s", hostKey)
+	logrus.Debugf("%s is getting restarted", hostKey)
 	if err := c.processor.Restart(s, hostKey); err != nil {
 		logrus.Error(err)
 		return
 	}
+	checkCh := c.manager.WaitForStream(fmt.Sprintf("%s/index.m3u8", s.StorePath))
+	<-checkCh
 	s.Streak.Activate().Hit()
 }
 
