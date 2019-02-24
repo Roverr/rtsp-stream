@@ -98,9 +98,10 @@ func (p Processor) NewStream(URI string) (*Stream, string) {
 	}
 	cmd := p.NewProcess(URI)
 	stream := Stream{
-		CMD:  cmd,
-		Mux:  &sync.Mutex{},
-		Path: fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", dirPath)),
+		CMD:       cmd,
+		Mux:       &sync.RWMutex{},
+		Path:      fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", dirPath)),
+		StorePath: newPath,
 		Streak: hotstreak.New(hotstreak.Config{
 			Limit:      10,
 			HotWait:    time.Minute * 2,
@@ -108,6 +109,7 @@ func (p Processor) NewStream(URI string) (*Stream, string) {
 		}).Activate(),
 		OriginalURI: URI,
 	}
+	logrus.Debugf("Created stream with storepath %s", stream.StorePath)
 	return &stream, fmt.Sprintf("%s/index.m3u8", newPath)
 }
 
@@ -157,7 +159,7 @@ func createDirectoryForURI(URI, storeDir string) (dirPath, newPath string, err e
 		return
 	}
 
-	newPath = filepath.Join(storeDir, dirPath)
+	newPath = fmt.Sprintf("%s/%s", storeDir, dirPath)
 	err = os.MkdirAll(newPath, os.ModePerm)
 	return
 }

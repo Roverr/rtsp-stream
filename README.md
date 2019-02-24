@@ -140,6 +140,14 @@ You should expect something like this:
 <img src="./ui.gif"/>
 
 
+### Logs
+
+With the UI solution the following files are created in `/var/log`: 
+* rtsp-stream-ui.err.log
+* rtsp-stream-ui.out.log
+* rtsp-stream.err.log
+* rtsp-stream.out.log
+
 ## Coming soon features
 
 ✅ - Done

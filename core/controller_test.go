@@ -55,7 +55,7 @@ func generateStream(hs *hotstreak.Hotstreak, URI string) generatedStream {
 	}
 	return generatedStream{
 		strm: streaming.Stream{
-			Mux:         &sync.Mutex{},
+			Mux:         &sync.RWMutex{},
 			Path:        fmt.Sprintf("/stream/%s/index.m3u8", dirPath),
 			OriginalURI: uri,
 			Streak:      streak,
@@ -74,6 +74,15 @@ var _ IManager = (*mockManager)(nil)
 func (m mockManager) Start(cmd *exec.Cmd, physicalPath string) chan bool {
 	if m.instead != nil {
 		return (*m.instead)(physicalPath)
+	}
+	streamResolved := make(chan bool, 1)
+	streamResolved <- m.resolve
+	return streamResolved
+}
+
+func (m mockManager) WaitForStream(path string) chan bool {
+	if m.instead != nil {
+		return (*m.instead)(path)
 	}
 	streamResolved := make(chan bool, 1)
 	streamResolved <- m.resolve
