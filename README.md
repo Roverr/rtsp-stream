@@ -14,6 +14,7 @@ rtsp-stream is an easy to use out of box solution that can be integrated into ex
 * [Configuration](https://github.com/Roverr/rtsp-stream#configuration)
 * [Run with Docker](https://github.com/Roverr/rtsp-stream#run-with-docker)
 * [UI](https://github.com/Roverr/rtsp-stream#ui)
+* [Proven players](https://github.com/Roverr/rtsp-stream#proven-players)
 * [Coming soon features](https://github.com/Roverr/rtsp-stream#coming-soon-features)
 
 
@@ -148,6 +149,12 @@ With the UI solution the following files are created in `/var/log`:
 * rtsp-stream.err.log
 * rtsp-stream.out.log
 
+## Proven players
+The following list of players has been already tried out in production environment using this backend:
+
+* Angular - [videogular](http://www.videogular.com/)
+* React - [ReactHLS](https://github.com/foxford/react-hls)
+
 ## Coming soon features
 
 ✅ - Done
@@ -155,6 +162,6 @@ With the UI solution the following files are created in `/var/log`:
 🤷‍♂️ - Needs more labour
 
 * 🤷‍♂️ Proper logging - File logging for the output of ffmpeg with the option of rotating file log
-* 🤷‍♂️ Improved cleanup - Unused streams should be removed from the system after a while
+* ✅ Improved cleanup - Unused streams should be removed from the system after a while
 * 🤷‍♂️ API improvements - Delete endpoint for streams so clients can remove streams whenever they would like to
 * ✅  Authentication layer - More options for creating authentication within the service
