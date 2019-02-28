@@ -183,6 +183,8 @@ func (c *Controller) handleAlreadyKnownStream(w http.ResponseWriter, strm *strea
 		c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
 		return
 	}
+	checkCh := c.manager.WaitForStream(fmt.Sprintf("%s/index.m3u8", strm.StorePath))
+	<-checkCh
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(b)
 }
