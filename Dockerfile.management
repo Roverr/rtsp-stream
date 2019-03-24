@@ -14,7 +14,7 @@ RUN go build -o server
 FROM node:lts-slim as build-ui
 ADD ./ui /tmp/ui
 WORKDIR /tmp/ui
-RUN npm install --production
+RUN npm install
 RUN echo API_URL=http://127.0.0.1:8080 > ./src/.env
 RUN npm run build
 
