@@ -23,16 +23,22 @@ type Auth struct {
 	JWTPubKeyPath string `envconfig:"AUTH_JWT_PUB_PATH" default:"./key.pub"` // Path to the public RSA key
 }
 
+// Process describes information regarding the transcoding process
+type Process struct {
+	CleanupTime time.Duration `envconfig:"CLEANUP_TIME" default:"2m0s"`  // Time period between process cleaning
+	StoreDir    string        `envconfig:"STORE_DIR" default:"./videos"` // Directory to store / service video chunks
+	KeepFiles   bool          `envconfig:"KEEP_FILES" default:"false"`   // Option for not deleting files
+}
+
 // Specification describes the application context settings
 type Specification struct {
-	Debug        bool          `envconfig:"DEBUG" default:"false"`         // Indicates if debug log should be enabled or not
-	Port         int           `envconfig:"PORT" default:"8080"`           // Port that the application listens on
-	CleanupTime  time.Duration `envconfig:"CLEANUP_TIME" default:"2m0s"`   // Time period between process cleaning
-	StoreDir     string        `envconfig:"STORE_DIR" default:"./videos"`  // Directory to store / service video chunks
-	ListEndpoint bool          `envconfig:"LIST_ENDPOINT" default:"false"` // Turns on / off the stream listing endpoint feature
+	Debug        bool `envconfig:"DEBUG" default:"false"`         // Indicates if debug log should be enabled or not
+	Port         int  `envconfig:"PORT" default:"8080"`           // Port that the application listens on
+	ListEndpoint bool `envconfig:"LIST_ENDPOINT" default:"false"` // Turns on / off the stream listing endpoint feature
 
 	CORS
 	Auth
+	Process
 }
 
 // InitConfig is to initalise the config

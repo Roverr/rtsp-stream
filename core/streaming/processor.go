@@ -30,15 +30,24 @@ type IProcessor interface {
 
 // Processor is the main type for creating new processes
 type Processor struct {
-	storeDir string
+	storeDir  string
+	keepFiles bool
 }
 
 // Type check
 var _ IProcessor = (*Processor)(nil)
 
 // NewProcessor creates a new instance of a processor
-func NewProcessor(storeDir string) *Processor {
-	return &Processor{storeDir}
+func NewProcessor(storeDir string, keepFiles bool) *Processor {
+	return &Processor{storeDir, keepFiles}
+}
+
+// getHLSFlags are for getting the flags based on the config context
+func (p Processor) getHLSFlags() string {
+	if p.keepFiles {
+		return "append_list"
+	}
+	return "delete_segments+append_list"
 }
 
 // NewProcess creates only the process for the stream
@@ -67,7 +76,7 @@ func (p Processor) NewProcess(URI string) *exec.Cmd {
 		"frag_keyframe+empty_moov",
 		"-an",
 		"-hls_flags",
-		"delete_segments+append_list",
+		p.getHLSFlags(),
 		"-f",
 		"hls",
 		"-segment_list_flags",
@@ -102,6 +111,7 @@ func (p Processor) NewStream(URI string) (*Stream, string) {
 			ActiveWait: time.Minute * 4,
 		}).Activate(),
 		OriginalURI: URI,
+		KeepFiles:   p.keepFiles,
 	}
 	logrus.Debugf("Created stream with storepath %s", stream.StorePath)
 	return &stream, fmt.Sprintf("%s/index.m3u8", newPath)

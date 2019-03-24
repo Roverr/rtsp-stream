@@ -19,13 +19,16 @@ type Stream struct {
 	Streak      *hotstreak.Hotstreak `json:"-"`
 	OriginalURI string               `json:"-"`
 	StorePath   string               `json:"-"`
+	KeepFiles   bool                 `json:"-"`
 }
 
 // CleanProcess makes sure that the transcoding process is killed correctly
 func (strm *Stream) CleanProcess() error {
 	strm.Mux.Lock()
 	strm.Streak.Deactivate()
-	defer strm.cleanDir()
+	if !strm.KeepFiles {
+		defer strm.cleanDir()
+	}
 	defer strm.Mux.Unlock()
 	if err := strm.CMD.Process.Kill(); err != nil {
 		if strings.Contains(err.Error(), "process already finished") {
