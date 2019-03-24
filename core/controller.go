@@ -69,7 +69,7 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 		map[string]*streaming.Stream{},
 		fileServer,
 		*manager,
-		streaming.NewProcessor(spec.StoreDir),
+		streaming.NewProcessor(spec.Process.StoreDir, spec.Process.KeepFiles),
 		time.Second * 15,
 		provider,
 	}

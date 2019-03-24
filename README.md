@@ -104,8 +104,12 @@ Response:
 
 You can configure the following settings in the application with environment variables:
 
+**Transcoding related configuration:**
 * `RTSP_STREAM_CLEANUP_TIME` - string (2m0s by default) - Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration)
 * `RTSP_STREAM_STORE_DIR` - string (./videos by default) - Sub directory to store video chunks
+* `RTSP_STREAM_KEEP_FILES` - bool (false by default) - Option to keep the chunks for the stream being transcoded.
+
+**HTTP related configuration:**
 * `RTSP_STREAM_PORT` - number (8080 by default) - Port where the application listens
 * `RTSP_STREAM_DEBUG` - bool (false by default) - Turns on / off debug logging
 * `RTSP_STREAM_LIST_ENDPOINT` - bool (false by default) - Turns on / off the `/list` endpoint
