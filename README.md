@@ -118,7 +118,7 @@ You can configure the following settings in the application with environment var
 | RTSP_STREAM_STORE_DIR | Sub directory to store the video chunks | `./videos` | string |
 | RTSP_STREAM_KEEP_FILES | Option to keep the chunks for the stream being transcoded | `false` | bool |
 
-The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for log rotation at the transcoding site.
+The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for the log rotation of the ffmpeg transcoding processes.
 
 | Env variable | Description | Default | Type |
 | :---        |    :----   |          ---: | :--- |
