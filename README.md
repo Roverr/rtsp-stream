@@ -6,16 +6,19 @@
 rtsp-stream is an easy to use out of box solution that can be integrated into existing systems resolving the problem of not being able to play rtsp stream natively in browsers. 
 
 ## Table of contents
-* [How does it work](https://github.com/Roverr/rtsp-stream#how-does-it-work)
-* [Authentication](https://github.com/Roverr/rtsp-stream#authentication)
-    * [No Authentication](https://github.com/Roverr/rtsp-stream#no-authentication)
-    * [JWT](https://github.com/Roverr/rtsp-stream#jwt-authentication)
-* [Easy API](https://github.com/Roverr/rtsp-stream#easy-api)
-* [Configuration](https://github.com/Roverr/rtsp-stream#configuration)
-* [Run with Docker](https://github.com/Roverr/rtsp-stream#run-with-docker)
-* [UI](https://github.com/Roverr/rtsp-stream#ui)
-* [Proven players](https://github.com/Roverr/rtsp-stream#proven-players)
-* [Coming soon features](https://github.com/Roverr/rtsp-stream#coming-soon-features)
+* [How does it work](#how-does-it-work)
+* [Authentication](#authentication)
+    * [No Authentication](#no-authentication)
+    * [JWT](#jwt-authentication)
+* [Easy API](#easy-api)
+* [Configuration](#configuration)
+    * [Transcoding](#transcoding-related-configuration)
+    * [HTTP](#http-related-configuration)
+    * [CORS](#cors-related-configuration)
+* [Run with Docker](#run-with-docker)
+* [UI](#ui)
+* [Proven players](#proven-players)
+* [Coming soon features](#coming-soon-features)
 
 
 ## How does it work
@@ -46,6 +49,7 @@ After it's created it can be validated in the transcoder using the same secret /
 It is the easiest way to integrate into existing systems.
 
 The following environment variables are available for this setup:
+
 | Env variable | Description | Default | Type |
 | :---        |    :----   |          ---: | :--- |
 | RTSP_STREAM_AUTH_JWT_ENABLED | Indicates if the service should use the JWT authentication for the requests | `false` | bool |
@@ -115,6 +119,7 @@ You can configure the following settings in the application with environment var
 | RTSP_STREAM_KEEP_FILES | Option to keep the chunks for the stream being transcoded | `false` | bool |
 
 The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for log rotation at the transcoding site.
+
 | Env variable | Description | Default | Type |
 | :---        |    :----   |          ---: | :--- |
 | RTSP_STREAM_PROCESS_LOGGING_ENABLED | Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration) | `false` | bool |
@@ -126,7 +131,7 @@ The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for log r
 
 <hr>
 
-**HTTP related configuration:**
+### HTTP related configuration:
 
 | Env variable | Description | Default | Type |
 | :---        |    :----   |          ---: | :--- |
@@ -136,7 +141,7 @@ The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for log r
 
 <hr>
 
-**CORS related configuration:**
+### CORS related configuration
 
 By default all origin is allowed to make requests to the server, but you might want to configure it for security reasons.
 
@@ -150,7 +155,9 @@ By default all origin is allowed to make requests to the server, but you might w
 ## Run with Docker
 The application has an offical docker repository at dockerhub, therefore you can easily run it with simple commands:
 
-`docker run -p 80:8080 roverr/rtsp-stream:1`
+```bash
+docker run -p 80:8080 roverr/rtsp-stream:1
+```
 
 or you can build it yourself using the source code.
 
@@ -160,7 +167,9 @@ You can use the included UI for handling the streams. The UI is not a compact so
 
 Running it with docker:
 
-`docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-management`
+```sh
+docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-management
+```
 
 If you decide to use the management image, you should know that port 80 is flexible, you can set it to whatever you prefer, but 8080 is currently burnt into the UI as the ultimate port of the backend.
 
