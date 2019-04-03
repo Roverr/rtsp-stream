@@ -122,7 +122,7 @@ The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for the l
 
 | Env variable | Description | Default | Type |
 | :---        |    :----   |          ---: | :--- |
-| RTSP_STREAM_PROCESS_LOGGING_ENABLED | Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration) | `false` | bool |
+| RTSP_STREAM_PROCESS_LOGGING_ENABLED | Indicates if logging of transcoding ffmpeg processes is enabled or not | `false` | bool |
 | RTSP_STREAM_PROCESS_LOGGING_DIR | Describes the directory where the transcoding logs are stored | `/var/log/rtsp-stream` | string |
 | RTSP_STREAM_PROCESS_LOGGING_MAX_SIZE | Maximum size of each log file in **megabytes** | `500` | integer |
 | RTSP_STREAM_PROCESS_LOGGING_MAX_AGE | Maximum number of days that we store a given log file. | `7` | integer |
