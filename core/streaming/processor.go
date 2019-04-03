@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/Roverr/hotstreak"
+	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/kennygrant/sanitize"
+	"github.com/natefinch/lumberjack"
 	"github.com/sirupsen/logrus"
 )
 
@@ -30,16 +32,21 @@ type IProcessor interface {
 
 // Processor is the main type for creating new processes
 type Processor struct {
-	storeDir  string
-	keepFiles bool
+	storeDir    string
+	keepFiles   bool
+	loggingOpts config.ProcessLogging
 }
 
 // Type check
 var _ IProcessor = (*Processor)(nil)
 
 // NewProcessor creates a new instance of a processor
-func NewProcessor(storeDir string, keepFiles bool) *Processor {
-	return &Processor{storeDir, keepFiles}
+func NewProcessor(
+	storeDir string,
+	keepFiles bool,
+	loggingOpts config.ProcessLogging,
+) *Processor {
+	return &Processor{storeDir, keepFiles, loggingOpts}
 }
 
 // getHLSFlags are for getting the flags based on the config context
@@ -100,6 +107,21 @@ func (p Processor) NewStream(URI string) (*Stream, string) {
 		return nil, ""
 	}
 	cmd := p.NewProcess(URI)
+
+	// Create nil pointer in case logging is not enabled
+	cmdLogger := (*lumberjack.Logger)(nil)
+	// Create logger otherwise
+	if p.loggingOpts.Enabled {
+		cmdLogger = &lumberjack.Logger{
+			Filename:   fmt.Sprintf("%s/%s.log", p.loggingOpts.Directory, dirPath),
+			MaxSize:    p.loggingOpts.MaxSize,
+			MaxBackups: p.loggingOpts.MaxBackups,
+			MaxAge:     p.loggingOpts.MaxAge,
+			Compress:   p.loggingOpts.Compress,
+		}
+		cmd.Stderr = cmdLogger
+		cmd.Stdout = cmdLogger
+	}
 	stream := Stream{
 		CMD:       cmd,
 		Mux:       &sync.RWMutex{},
@@ -112,6 +134,7 @@ func (p Processor) NewStream(URI string) (*Stream, string) {
 		}).Activate(),
 		OriginalURI: URI,
 		KeepFiles:   p.keepFiles,
+		Logger:      cmdLogger,
 	}
 	logrus.Debugf("Created stream with storepath %s", stream.StorePath)
 	return &stream, fmt.Sprintf("%s/index.m3u8", newPath)
@@ -122,6 +145,10 @@ func (p Processor) Restart(strm *Stream, path string) error {
 	strm.Mux.Lock()
 	defer strm.Mux.Unlock()
 	strm.CMD = p.NewProcess(strm.OriginalURI)
+	if p.loggingOpts.Enabled {
+		strm.CMD.Stderr = strm.Logger
+		strm.CMD.Stdout = strm.Logger
+	}
 	strm.Streak.Activate()
 	go func() {
 		logrus.Infof("%s has been restarted", path)
