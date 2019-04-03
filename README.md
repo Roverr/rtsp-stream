@@ -6,16 +6,19 @@
 rtsp-stream is an easy to use out of box solution that can be integrated into existing systems resolving the problem of not being able to play rtsp stream natively in browsers. 
 
 ## Table of contents
-* [How does it work](https://github.com/Roverr/rtsp-stream#how-does-it-work)
-* [Authentication](https://github.com/Roverr/rtsp-stream#authentication)
-    * [No Authentication](https://github.com/Roverr/rtsp-stream#no-authentication)
-    * [JWT](https://github.com/Roverr/rtsp-stream#jwt-authentication)
-* [Easy API](https://github.com/Roverr/rtsp-stream#easy-api)
-* [Configuration](https://github.com/Roverr/rtsp-stream#configuration)
-* [Run with Docker](https://github.com/Roverr/rtsp-stream#run-with-docker)
-* [UI](https://github.com/Roverr/rtsp-stream#ui)
-* [Proven players](https://github.com/Roverr/rtsp-stream#proven-players)
-* [Coming soon features](https://github.com/Roverr/rtsp-stream#coming-soon-features)
+* [How does it work](#how-does-it-work)
+* [Authentication](#authentication)
+    * [No Authentication](#no-authentication)
+    * [JWT](#jwt-authentication)
+* [Easy API](#easy-api)
+* [Configuration](#configuration)
+    * [Transcoding](#transcoding-related-configuration)
+    * [HTTP](#http-related-configuration)
+    * [CORS](#cors-related-configuration)
+* [Run with Docker](#run-with-docker)
+* [UI](#ui)
+* [Proven players](#proven-players)
+* [Coming soon features](#coming-soon-features)
 
 
 ## How does it work
@@ -44,12 +47,15 @@ You can use shared key JWT authentication for the service.
 The service itself does not create any tokens, but your authentication service can create.
 After it's created it can be validated in the transcoder using the same secret / keys.
 It is the easiest way to integrate into existing systems.
+
 The following environment variables are available for this setup:
 
-* **RTSP_STREAM_AUTH_JWT_ENABLED** - bool (false by default) - Indicates if the service should use the JWT authentication for the requests
-* **RTPS_STREAM_AUTH_JWT_SECRET** - string (macilaci by default) - The secret used for creating the JWT tokens
-* **RTSP_STREAM_AUTH_JWT_PUB_PATH** - string (/key.pub by default) - Path to the public RSA key.
-* **RTSP_STREAM_AUTH_JWT_METHOD** - string (secret by default) - Can be `secret` or `rsa`. Changes how the application does the JWT verification.
+| Env variable | Description | Default | Type |
+| :---        |    :----   |          ---: | :--- |
+| RTSP_STREAM_AUTH_JWT_ENABLED | Indicates if the service should use the JWT authentication for the requests | `false` | bool |
+| RTPS_STREAM_AUTH_JWT_SECRET | The secret used for creating the JWT tokens | `macilaci` | string |
+| RTSP_STREAM_AUTH_JWT_PUB_PATH | Path to the public shared RSA key.| `/key.pub` | string |
+| RTSP_STREAM_AUTH_JWT_METHOD | Can be `secret` or `rsa`. Changes how the application does the JWT verification.| `secret` | string |
 
 You won't need the private key for it because no signing happens in this application.
 
@@ -104,28 +110,54 @@ Response:
 
 You can configure the following settings in the application with environment variables:
 
-**Transcoding related configuration:**
-* `RTSP_STREAM_CLEANUP_TIME` - string (2m0s by default) - Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration)
-* `RTSP_STREAM_STORE_DIR` - string (./videos by default) - Sub directory to store video chunks
-* `RTSP_STREAM_KEEP_FILES` - bool (false by default) - Option to keep the chunks for the stream being transcoded.
+### Transcoding related configuration:
 
-**HTTP related configuration:**
-* `RTSP_STREAM_PORT` - number (8080 by default) - Port where the application listens
-* `RTSP_STREAM_DEBUG` - bool (false by default) - Turns on / off debug logging
-* `RTSP_STREAM_LIST_ENDPOINT` - bool (false by default) - Turns on / off the `/list` endpoint
+| Env variable | Description | Default | Type |
+| :---        |    :----   |          ---: | :--- |
+| RTSP_STREAM_CLEANUP_TIME | Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration) | `2m0s` | string |
+| RTSP_STREAM_STORE_DIR | Sub directory to store the video chunks | `./videos` | string |
+| RTSP_STREAM_KEEP_FILES | Option to keep the chunks for the stream being transcoded | `false` | bool |
 
-**CORS related configuration:**
+The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for log rotation at the transcoding site.
+
+| Env variable | Description | Default | Type |
+| :---        |    :----   |          ---: | :--- |
+| RTSP_STREAM_PROCESS_LOGGING_ENABLED | Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration) | `false` | bool |
+| RTSP_STREAM_PROCESS_LOGGING_DIR | Describes the directory where the transcoding logs are stored | `/var/log/rtsp-stream` | string |
+| RTSP_STREAM_PROCESS_LOGGING_MAX_SIZE | Maximum size of each log file in **megabytes** | `500` | integer |
+| RTSP_STREAM_PROCESS_LOGGING_MAX_AGE | Maximum number of days that we store a given log file. | `7` | integer |
+| RTSP_STREAM_PROCESS_LOGGING_MAX_BACKUPS | Maximum number of old log files to retain | `3` | integer |
+| RTSP_STREAM_PROCESS_LOGGING_COMPRESS | Option to compress the rotated log file or not | `true` | bool |
+
+<hr>
+
+### HTTP related configuration:
+
+| Env variable | Description | Default | Type |
+| :---        |    :----   |          ---: | :--- |
+| RTSP_STREAM_PORT | Port where the application listens | `8080` | integer |
+| RTSP_STREAM_DEBUG | Turns on / off debug logging | `false` | bool |
+| RTSP_STREAM_LIST_ENDPOINT | Turns on / off the `/list` endpoint | `false` | bool |
+
+<hr>
+
+### CORS related configuration
 
 By default all origin is allowed to make requests to the server, but you might want to configure it for security reasons.
-* `RTSP_STREAM_CORS_ENABLED` - bool - Indicates if cors should be handled as configured or as default (everything allowed)
-* `RTSP_STREAM_CORS_ALLOWED_ORIGIN` - string array - A list of origins a cross-domain request can be executed from
-* `RTSP_STREAM_CORS_ALLOW_CREDENTIALS` - bool - Indicates whether the request can include user credentials like cookies, HTTP authentication or client side SSL certificates
-* `RTSP_STREAM_CORS_MAX_AGE` - number - Indicates how long (in seconds) the results of a preflight request can be cached.
+
+| Env variable | Description | Default | Type |
+| :---        |    :----   |          ---: | :--- |
+| RTSP_STREAM_CORS_ENABLED | Indicates if cors should be handled as configured or as default (everything allowed) | `false` | bool |
+| RTSP_STREAM_CORS_ALLOWED_ORIGIN | A list of origins a cross-domain request can be executed from |  | []string |
+| RTSP_STREAM_CORS_ALLOW_CREDENTIALS | Indicates whether the request can include user credentials like cookies, HTTP authentication or client side SSL certificates | `false` | bool |
+| RTSP_STREAM_CORS_MAX_AGE | Indicates how long (in seconds) the results of a preflight request can be cached. | `0` | integer |
 
 ## Run with Docker
 The application has an offical docker repository at dockerhub, therefore you can easily run it with simple commands:
 
-`docker run -p 80:8080 roverr/rtsp-stream:1`
+```bash
+docker run -p 80:8080 roverr/rtsp-stream:1
+```
 
 or you can build it yourself using the source code.
 
@@ -135,7 +167,9 @@ You can use the included UI for handling the streams. The UI is not a compact so
 
 Running it with docker:
 
-`docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-management`
+```sh
+docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-management
+```
 
 If you decide to use the management image, you should know that port 80 is flexible, you can set it to whatever you prefer, but 8080 is currently burnt into the UI as the ultimate port of the backend.
 
@@ -165,7 +199,7 @@ The following list of players has been already tried out in production environme
 
 🤷‍♂️ - Needs more labour
 
-* 🤷‍♂️ Proper logging - File logging for the output of ffmpeg with the option of rotating file log
+* ✅ Proper logging - File logging for the output of ffmpeg with the option of rotating file log
 * ✅ Improved cleanup - Unused streams should be removed from the system after a while
 * 🤷‍♂️ API improvements - Delete endpoint for streams so clients can remove streams whenever they would like to
 * ✅  Authentication layer - More options for creating authentication within the service

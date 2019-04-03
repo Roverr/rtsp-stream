@@ -23,6 +23,16 @@ type Auth struct {
 	JWTPubKeyPath string `envconfig:"AUTH_JWT_PUB_PATH" default:"./key.pub"` // Path to the public RSA key
 }
 
+// ProcessLogging describes information about the logging mechanism of the transcoding FFMPEG process
+type ProcessLogging struct {
+	Enabled    bool   `envconfig:"PROCESS_LOGGING" default:"false"`                    // Option to set logging for transcoding processes
+	Directory  string `envconfig:"PROCESS_LOGGING_DIR" default:"/var/log/rtsp-stream"` // Directory for the logs
+	MaxSize    int    `envconfig:"PROCESS_LOGGING_MAX_SIZE" default:"500"`             // Maximum size of kept logging files in megabytes
+	MaxBackups int    `envconfig:"PROCESS_LOGGING_MAX_BACKUPS" default:"3"`            // Maximum number of old log files to retain
+	MaxAge     int    `envconfig:"PROCESS_LOGGING_MAX_AGE" default:"7"`                // Maximum number of days to retain an old log file.
+	Compress   bool   `envconfig:"PROCESS_LOGGING_COMPRESS" default:"true"`            // Indicates if the log rotation should compress the log files
+}
+
 // Process describes information regarding the transcoding process
 type Process struct {
 	CleanupTime time.Duration `envconfig:"CLEANUP_TIME" default:"2m0s"`  // Time period between process cleaning
@@ -39,6 +49,7 @@ type Specification struct {
 	CORS
 	Auth
 	Process
+	ProcessLogging
 }
 
 // InitConfig is to initalise the config

@@ -64,3 +64,7 @@
 [[constraint]]
   name = "github.com/dgrijalva/jwt-go"
   version = "3.2.0"
+
+[[constraint]]
+  name = "github.com/natefinch/lumberjack"
+  version = "2.1.0"

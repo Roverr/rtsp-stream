@@ -69,6 +69,14 @@
   version = "v1.0.1"
 
 [[projects]]
+  digest = "1:c805e517269b0ba4c21ded5836019ed7d16953d4026cb7d00041d039c7906be9"
+  name = "github.com/natefinch/lumberjack"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a96e63847dc3c67d17befa69c303767e2f84e54f"
+  version = "v2.1"
+
+[[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
@@ -140,6 +148,7 @@
     "github.com/julienschmidt/httprouter",
     "github.com/kelseyhightower/envconfig",
     "github.com/kennygrant/sanitize",
+    "github.com/natefinch/lumberjack",
     "github.com/rs/cors",
     "github.com/sirupsen/logrus",
     "github.com/stretchr/testify/assert",

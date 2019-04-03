@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/natefinch/lumberjack"
 	"github.com/sirupsen/logrus"
 
 	"github.com/Roverr/hotstreak"
@@ -20,6 +21,7 @@ type Stream struct {
 	OriginalURI string               `json:"-"`
 	StorePath   string               `json:"-"`
 	KeepFiles   bool                 `json:"-"`
+	Logger      *lumberjack.Logger   `json:"-"`
 }
 
 // CleanProcess makes sure that the transcoding process is killed correctly
