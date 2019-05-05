@@ -180,7 +180,7 @@ func GetURIDirectory(URI string) (string, error) {
 	if err = ValidateURL(URL); err != nil {
 		return "", err
 	}
-	return sanitize.BaseName(fmt.Sprintf("%s-%s", URL.Hostname(), sanitize.Path(URL.Path))), nil
+	return sanitize.BaseName(fmt.Sprintf("%s-%s-%s", URL.Hostname(), URL.Port(), sanitize.Path(URL.Path))), nil
 }
 
 // createDirectoryForURI is to create a safe path based on the received URI
