@@ -84,7 +84,7 @@ func (m Manager) Start(cmd *exec.Cmd, physicalPath string) chan bool {
 	go func() {
 		if err := cmd.Run(); err != nil {
 			once.Do(func() {
-				logrus.Error(err)
+				logrus.Errorf("Error happened during starting of %s || Error: %s", physicalPath, err)
 				streamResolved <- false
 			})
 		}
