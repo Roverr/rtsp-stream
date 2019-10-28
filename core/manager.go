@@ -75,7 +75,10 @@ func (m Manager) Start(cmd *exec.Cmd, physicalPath string) chan bool {
 				<-time.After(25 * time.Millisecond)
 				continue
 			}
-			once.Do(func() { streamResolved <- true })
+			once.Do(func() {
+				streamResolved <- true
+				close(streamResolved)
+			})
 			return
 		}
 	}()
@@ -86,6 +89,7 @@ func (m Manager) Start(cmd *exec.Cmd, physicalPath string) chan bool {
 			once.Do(func() {
 				logrus.Errorf("Error happened during starting of %s || Error: %s", physicalPath, err)
 				streamResolved <- false
+				close(streamResolved)
 			})
 		}
 	}()
@@ -96,6 +100,7 @@ func (m Manager) Start(cmd *exec.Cmd, physicalPath string) chan bool {
 		once.Do(func() {
 			logrus.Error(fmt.Errorf("%s timed out while waiting for file creation in manager start", physicalPath))
 			streamResolved <- false
+			close(streamResolved)
 		})
 	}()
 

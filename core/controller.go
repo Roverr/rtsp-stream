@@ -50,6 +50,7 @@ type SummariseDto struct {
 type Controller struct {
 	spec       *config.Specification
 	streams    map[string]*streaming.Stream
+	index      map[string]string
 	fileServer http.Handler
 	manager    IManager
 	processor  streaming.IProcessor
@@ -67,6 +68,7 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 	return &Controller{
 		spec,
 		map[string]*streaming.Stream{},
+		map[string]string{},
 		fileServer,
 		*manager,
 		streaming.NewProcessor(spec.Process.StoreDir, spec.Process.KeepFiles, spec.ProcessLogging),
@@ -123,19 +125,17 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		c.SendError(w, err, http.StatusBadRequest)
 		return
 	}
-	// Calculate directory from URI
-	dir, err := streaming.GetURIDirectory(dto.URI)
-	if err != nil {
-		logrus.Error(err)
-		c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
+	if index, ok := c.index[dto.URI]; ok {
+		stream, ok := c.streams[index]
+		if !ok {
+			logrus.Error("Missing index for URI: ", dto.URI)
+			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
+			return
+		}
+		c.handleAlreadyKnownStream(w, stream, c.spec, stream.StorePath)
 		return
 	}
-	if stream, ok := c.streams[dir]; ok {
-		c.handleAlreadyKnownStream(w, stream, c.spec, dir)
-		return
-	}
-	streamResolved := c.startStream(dto.URI, dir, c.spec)
-	defer close(streamResolved)
+	streamResolved := c.startStream(dto.URI, c.spec)
 	select {
 	case <-time.After(c.timeout):
 		c.SendError(w, ErrTimeout, http.StatusRequestTimeout)
@@ -144,7 +144,13 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
 			return
 		}
-		s := c.streams[dir]
+		index, ok := c.index[dto.URI]
+		if !ok {
+			logrus.Error("Did not find any index for ", dto.URI)
+			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
+			return
+		}
+		s := c.streams[index]
 		b, _ := json.Marshal(StreamDto{URI: s.Path})
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(b)
@@ -251,10 +257,11 @@ func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps ht
 }
 
 // startStream creates a new stream then starts processing it with a manager
-func (c *Controller) startStream(uri, dir string, spec *config.Specification) chan bool {
-	logrus.Infof("%s started processing", dir)
-	stream, physicalPath := c.processor.NewStream(uri)
-	c.streams[dir] = stream
+func (c *Controller) startStream(uri string, spec *config.Specification) chan bool {
+	logrus.Infof("%s started processing", uri)
+	stream, physicalPath, id := c.processor.NewStream(uri)
+	c.streams[id] = stream
+	c.index[uri] = id
 	ch := c.manager.Start(stream.CMD, physicalPath)
 	return ch
 }

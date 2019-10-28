@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Roverr/rtsp-stream/core/streaming"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,10 +17,8 @@ func TestManager(t *testing.T) {
 
 	t.Run("Should return with true, because the file is created", func(t *testing.T) {
 		mngr := NewManager(time.Second * 15)
-		uri := generateURI()
-		dir, err := streaming.GetURIDirectory(uri)
-		assert.Nil(t, err)
-		dirPath := fmt.Sprintf("%s/%s", storeDir, dir)
+		id := uuid.New().String()
+		dirPath := fmt.Sprintf("%s/%s", storeDir, id)
 		physicalPath := fmt.Sprintf("%s/index.m3u8", dirPath)
 		assert.Nil(t, os.MkdirAll(dirPath, os.ModePerm))
 		cmd := exec.Command("touch", physicalPath)
@@ -31,10 +29,8 @@ func TestManager(t *testing.T) {
 
 	t.Run("Should return with false, the process errors out before the file is created", func(t *testing.T) {
 		mngr := NewManager(time.Second * 15)
-		uri := generateURI()
-		dir, err := streaming.GetURIDirectory(uri)
-		assert.Nil(t, err)
-		dirPath := fmt.Sprintf("%s/%s", storeDir, dir)
+		id := uuid.New().String()
+		dirPath := fmt.Sprintf("%s/%s", storeDir, id)
 		physicalPath := fmt.Sprintf("%s/index.m3u8", dirPath)
 		assert.Nil(t, os.MkdirAll(dirPath, os.ModePerm))
 		cmd := exec.Command("exit", "1")
@@ -45,10 +41,8 @@ func TestManager(t *testing.T) {
 
 	t.Run("Should return with false, if the process just times out", func(t *testing.T) {
 		mngr := NewManager(time.Second * 2)
-		uri := generateURI()
-		dir, err := streaming.GetURIDirectory(uri)
-		assert.Nil(t, err)
-		dirPath := fmt.Sprintf("%s/%s", storeDir, dir)
+		id := uuid.New().String()
+		dirPath := fmt.Sprintf("%s/%s", storeDir, id)
 		physicalPath := fmt.Sprintf("%s/index.m3u8", dirPath)
 		assert.Nil(t, os.MkdirAll(dirPath, os.ModePerm))
 		cmd := exec.Command("sleep", "20")

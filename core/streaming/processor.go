@@ -12,7 +12,7 @@ import (
 
 	"github.com/Roverr/hotstreak"
 	"github.com/Roverr/rtsp-stream/core/config"
-	"github.com/kennygrant/sanitize"
+	"github.com/google/uuid"
 	"github.com/natefinch/lumberjack"
 	"github.com/sirupsen/logrus"
 )
@@ -25,8 +25,8 @@ var ErrUnparsedURL = errors.New("URL is not parsed correctly")
 
 // IProcessor is an interface describing a processor service
 type IProcessor interface {
-	NewProcess(URI string) *exec.Cmd
-	NewStream(URI string) (*Stream, string)
+	NewProcess(path, URI string) *exec.Cmd
+	NewStream(URI string) (*Stream, string, string)
 	Restart(stream *Stream, path string) error
 }
 
@@ -58,13 +58,7 @@ func (p Processor) getHLSFlags() string {
 }
 
 // NewProcess creates only the process for the stream
-func (p Processor) NewProcess(URI string) *exec.Cmd {
-	dirPath, newPath, err := createDirectoryForURI(URI, p.storeDir)
-	if err != nil {
-		logrus.Error("Error happened while getting directory name in creating process", dirPath)
-		return nil
-	}
-
+func (p Processor) NewProcess(path, URI string) *exec.Cmd {
 	cmd := exec.Command(
 		"ffmpeg",
 		"-y",
@@ -93,27 +87,27 @@ func (p Processor) NewProcess(URI string) *exec.Cmd {
 		"-hls_list_size",
 		"3",
 		"-hls_segment_filename",
-		fmt.Sprintf("%s/%%d.ts", newPath),
-		fmt.Sprintf("%s/index.m3u8", newPath),
+		fmt.Sprintf("%s/%%d.ts", path),
+		fmt.Sprintf("%s/index.m3u8", path),
 	)
 	return cmd
 }
 
 // NewStream creates a new transcoding process for ffmpeg
-func (p Processor) NewStream(URI string) (*Stream, string) {
-	dirPath, newPath, err := createDirectoryForURI(URI, p.storeDir)
+func (p Processor) NewStream(URI string) (*Stream, string, string) {
+	id, path, err := createDirectoryForURI(p.storeDir)
 	if err != nil {
-		logrus.Error("Error happened while getting directory name", dirPath)
-		return nil, ""
+		logrus.Error(err)
+		return nil, "", ""
 	}
-	cmd := p.NewProcess(URI)
+	cmd := p.NewProcess(path, URI)
 
 	// Create nil pointer in case logging is not enabled
 	cmdLogger := (*lumberjack.Logger)(nil)
 	// Create logger otherwise
 	if p.loggingOpts.Enabled {
 		cmdLogger = &lumberjack.Logger{
-			Filename:   fmt.Sprintf("%s/%s.log", p.loggingOpts.Directory, dirPath),
+			Filename:   fmt.Sprintf("%s/%s.log", p.loggingOpts.Directory, id),
 			MaxSize:    p.loggingOpts.MaxSize,
 			MaxBackups: p.loggingOpts.MaxBackups,
 			MaxAge:     p.loggingOpts.MaxAge,
@@ -125,8 +119,8 @@ func (p Processor) NewStream(URI string) (*Stream, string) {
 	stream := Stream{
 		CMD:       cmd,
 		Mux:       &sync.RWMutex{},
-		Path:      fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", dirPath)),
-		StorePath: newPath,
+		Path:      fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", id)),
+		StorePath: path,
 		Streak: hotstreak.New(hotstreak.Config{
 			Limit:      10,
 			HotWait:    time.Minute * 2,
@@ -137,14 +131,14 @@ func (p Processor) NewStream(URI string) (*Stream, string) {
 		Logger:      cmdLogger,
 	}
 	logrus.Debugf("Created stream with storepath %s", stream.StorePath)
-	return &stream, fmt.Sprintf("%s/index.m3u8", newPath)
+	return &stream, fmt.Sprintf("%s/index.m3u8", path), id
 }
 
 // Restart uses the processor to restart a given stream
 func (p Processor) Restart(strm *Stream, path string) error {
 	strm.Mux.Lock()
 	defer strm.Mux.Unlock()
-	strm.CMD = p.NewProcess(strm.OriginalURI)
+	strm.CMD = p.NewProcess(strm.StorePath, strm.OriginalURI)
 	if p.loggingOpts.Enabled {
 		strm.CMD.Stderr = strm.Logger
 		strm.CMD.Stdout = strm.Logger
@@ -171,26 +165,10 @@ func ValidateURL(URL *url.URL) error {
 	return nil
 }
 
-// GetURIDirectory is a function to create a directory string from an URI
-func GetURIDirectory(URI string) (string, error) {
-	URL, err := url.Parse(URI)
-	if err != nil {
-		return "", err
-	}
-	if err = ValidateURL(URL); err != nil {
-		return "", err
-	}
-	return sanitize.BaseName(fmt.Sprintf("%s-%s-%s", URL.Hostname(), URL.Port(), sanitize.Path(URL.Path))), nil
-}
-
 // createDirectoryForURI is to create a safe path based on the received URI
-func createDirectoryForURI(URI, storeDir string) (dirPath, newPath string, err error) {
-	dirPath, err = GetURIDirectory(URI)
-	if err != nil {
-		return
-	}
-
-	newPath = fmt.Sprintf("%s/%s", storeDir, dirPath)
-	err = os.MkdirAll(newPath, os.ModePerm)
+func createDirectoryForURI(storeDir string) (id, path string, err error) {
+	id = uuid.New().String()
+	path = fmt.Sprintf("%s/%s", storeDir, id)
+	err = os.MkdirAll(path, os.ModePerm)
 	return
 }
