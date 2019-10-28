@@ -16,6 +16,7 @@ import (
 
 	"github.com/Roverr/hotstreak"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/Roverr/rtsp-stream/core/config"
@@ -44,7 +45,6 @@ func generateStream(hs *hotstreak.Hotstreak, URI string) generatedStream {
 	if URI == "" {
 		uri = generateURI()
 	}
-	dirPath, _ := streaming.GetURIDirectory(uri)
 	streak := hs
 	if hs == nil {
 		streak = hotstreak.New(hotstreak.Config{
@@ -53,14 +53,15 @@ func generateStream(hs *hotstreak.Hotstreak, URI string) generatedStream {
 			ActiveWait: time.Minute * 4,
 		})
 	}
+	id := uuid.New().String()
 	return generatedStream{
 		strm: streaming.Stream{
 			Mux:         &sync.RWMutex{},
-			Path:        fmt.Sprintf("/stream/%s/index.m3u8", dirPath),
+			Path:        fmt.Sprintf("/stream/%s/index.m3u8", id),
 			OriginalURI: uri,
 			Streak:      streak,
 		},
-		dirPath: dirPath,
+		dirPath: id,
 	}
 }
 
@@ -93,13 +94,13 @@ type mockProcessor struct{}
 
 var _ streaming.IProcessor = (*mockProcessor)(nil)
 
-func (m mockProcessor) NewProcess(URI string) *exec.Cmd {
+func (m mockProcessor) NewProcess(path, URI string) *exec.Cmd {
 	return nil
 }
 
-func (m mockProcessor) NewStream(URI string) (*streaming.Stream, string) {
+func (m mockProcessor) NewStream(URI string) (*streaming.Stream, string, string) {
 	generated := generateStream(nil, URI)
-	return &generated.strm, generated.strm.Path
+	return &generated.strm, generated.strm.Path, generated.dirPath
 }
 
 func (m mockProcessor) Restart(stream *streaming.Stream, path string) error {
@@ -204,6 +205,7 @@ func TestController(t *testing.T) {
 		ctrls.streams = map[string]*streaming.Stream{
 			generated.dirPath: &generated.strm,
 		}
+		ctrls.index[generated.strm.OriginalURI] = generated.dirPath
 		generated.strm.Streak.Hit()
 		dto := StreamDto{
 			URI: generated.strm.OriginalURI,
@@ -228,12 +230,9 @@ func TestController(t *testing.T) {
 		router.POST("/start", ctrls.StartStreamHandler)
 		server := httptest.NewServer(router)
 		defer server.Close()
-
 		dto := StreamDto{
 			URI: generateURI(),
 		}
-		dir, err := streaming.GetURIDirectory(dto.URI)
-		assert.Nil(t, err)
 		b, err := json.Marshal(dto)
 		assert.Nil(t, err)
 		res, err := http.Post(fmt.Sprintf("%s/start", server.URL), "application/json", bytes.NewBuffer(b))
@@ -242,7 +241,9 @@ func TestController(t *testing.T) {
 		assert.Nil(t, err)
 		var result StreamDto
 		assert.Nil(t, json.Unmarshal(b, &result))
-		strm, ok := ctrls.streams[dir]
+		index, ok := ctrls.index[dto.URI]
+		assert.True(t, ok)
+		strm, ok := ctrls.streams[index]
 		assert.True(t, ok)
 		assert.Equal(t, result.URI, strm.Path)
 	})
@@ -262,11 +263,10 @@ func TestController(t *testing.T) {
 		ctrls.streams = map[string]*streaming.Stream{
 			generated.dirPath: &generated.strm,
 		}
+		ctrls.index[generated.strm.OriginalURI] = generated.dirPath
 		dto := StreamDto{
 			URI: generated.strm.OriginalURI,
 		}
-		dir, err := streaming.GetURIDirectory(dto.URI)
-		assert.Nil(t, err)
 		b, err := json.Marshal(dto)
 		assert.Nil(t, err)
 		res, err := http.Post(fmt.Sprintf("%s/start", server.URL), "application/json", bytes.NewBuffer(b))
@@ -275,18 +275,19 @@ func TestController(t *testing.T) {
 		assert.Nil(t, err)
 		var result StreamDto
 		assert.Nil(t, json.Unmarshal(b, &result))
-		strm, ok := ctrls.streams[dir]
+		index, ok := ctrls.index[dto.URI]
+		assert.True(t, ok)
+		strm, ok := ctrls.streams[index]
 		assert.True(t, ok)
 		assert.Equal(t, result.URI, strm.Path)
-
 		assert.True(t, ctrls.streams[generated.dirPath].Streak.IsActive())
 	})
-
 	t.Run("Should be able to receive unexpected error if something happens", func(t *testing.T) {
 		ctrls := NewController(cfg, fileServer)
 		ctrls.manager = mockManager{resolve: false}
 		ctrls.processor = mockProcessor{}
 		ctrls.streams = map[string]*streaming.Stream{}
+		ctrls.index = map[string]string{}
 		router := httprouter.New()
 		router.GET("/list", ctrls.ListStreamHandler)
 		router.POST("/start", ctrls.StartStreamHandler)
@@ -316,6 +317,7 @@ func TestController(t *testing.T) {
 		ctrls.manager = mockManager{instead: &instead}
 		ctrls.processor = mockProcessor{}
 		ctrls.streams = map[string]*streaming.Stream{}
+		ctrls.index = map[string]string{}
 		router := httprouter.New()
 		router.GET("/list", ctrls.ListStreamHandler)
 		router.POST("/start", ctrls.StartStreamHandler)
@@ -358,6 +360,10 @@ func TestController(t *testing.T) {
 			generated.dirPath:       &generated.strm,
 			activeGenerated.dirPath: &activeGenerated.strm,
 		}
+		ctrls.index = map[string]string{
+			generated.strm.OriginalURI:       generated.dirPath,
+			activeGenerated.strm.OriginalURI: activeGenerated.dirPath,
+		}
 		<-time.After(time.Second * 2)
 		ctrls.cleanUnused()
 		wg.Wait()
@@ -388,13 +394,16 @@ func TestController(t *testing.T) {
 			generated.dirPath:       &generated.strm,
 			activeGenerated.dirPath: &activeGenerated.strm,
 		}
+		ctrls.index = map[string]string{
+			generated.strm.OriginalURI:       generated.dirPath,
+			activeGenerated.strm.OriginalURI: activeGenerated.dirPath,
+		}
 		<-time.After(time.Second * 2)
 		ctrls.cleanUp()
 		wg.Wait()
 		assert.False(t, generated.strm.CMD.ProcessState.Success())
 		assert.False(t, activeGenerated.strm.CMD.ProcessState.Success())
 	})
-
 	t.Run("Should be able to serve required files for known streams", func(t *testing.T) {
 		storeDir := "./test"
 		assert.Nil(t, os.MkdirAll(storeDir, os.ModePerm))
@@ -410,6 +419,9 @@ func TestController(t *testing.T) {
 		generated.strm.Streak.Activate().Hit()
 		ctrls.streams = map[string]*streaming.Stream{
 			generated.dirPath: &generated.strm,
+		}
+		ctrls.index = map[string]string{
+			generated.strm.OriginalURI: generated.dirPath,
 		}
 
 		assert.Nil(t, os.MkdirAll(fmt.Sprintf("%s/%s", storeDir, generated.dirPath), os.ModePerm))
@@ -443,6 +455,9 @@ func TestController(t *testing.T) {
 		generated.strm.Streak.Deactivate()
 		ctrls.streams = map[string]*streaming.Stream{
 			generated.dirPath: &generated.strm,
+		}
+		ctrls.index = map[string]string{
+			generated.strm.OriginalURI: generated.dirPath,
 		}
 
 		assert.Nil(t, os.MkdirAll(fmt.Sprintf("%s/%s", storeDir, generated.dirPath), os.ModePerm))

@@ -3,22 +3,22 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:750f2105943e757d5fd8e7bf7a9456ad3ea2d87dc9e3ee178a7106039c263426"
+  digest = "1:ecbb7ca9c577a5fc883f330cc7474276c72bfdc4a4ea3a16a43a464d4b3ea3b8"
   name = "github.com/Roverr/hotstreak"
   packages = ["."]
   pruneopts = "UT"
-  revision = "f59bf01e31e7019b4679aec7cb6c44fee6cdd1c9"
+  revision = "0709e41f4a19640fc0523bffd896491d273494d9"
 
 [[projects]]
-  digest = "1:b1d26f7aaa109b980a070461d1ad6885d65ef2caf2c88945457fb75088c9689f"
+  digest = "1:4fc7ef733af25ff9e4a4799eb7d541b8d74f676896a3fd4446adefc86253afd8"
   name = "github.com/brianvoe/gofakeit"
   packages = [
     ".",
     "data",
   ]
   pruneopts = "UT"
-  revision = "ef77ecfb7975a2dab29decab86e4e6a1529e3963"
-  version = "v3.15.0"
+  revision = "19b40d7d6241163eba8b06ddec1041a36db06c54"
+  version = "v3.20.2"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -37,36 +37,36 @@
   version = "v3.2.0"
 
 [[projects]]
-  digest = "1:f97285a3b0a496dcf8801072622230d513f69175665d94de60eb042d03387f6c"
+  digest = "1:582b704bebaa06b48c29b0cec224a6058a09c86883aaddabde889cd1a5f73e1b"
+  name = "github.com/google/uuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0cd6bf5da1e1c83f8b45653022c74f71af0538a4"
+  version = "v1.1.1"
+
+[[projects]]
+  digest = "1:84a35669b4b31cc20ffc89c3b2ab32f2189fb2366a973efa1c25e009ef6ae1c6"
   name = "github.com/julienschmidt/httprouter"
   packages = ["."]
   pruneopts = "UT"
-  revision = "348b672cd90d8190f8240323e372ecd1e66b59dc"
-  version = "v1.2.0"
-
-[[projects]]
-  digest = "1:edbef42561faa44c19129b68d1e109fbc1647f63239250391eadc8d0e7c9f669"
-  name = "github.com/kelseyhightower/envconfig"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "f611eb38b3875cc3bd991ca91c51d06446afa14c"
+  revision = "4eec211fa4e8df74ed978dc5681612131854144f"
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:e30ac47ee84d7d354e0a284cf742e3015400667e90aa3d6ae99c7a55da67c645"
-  name = "github.com/kennygrant/sanitize"
+  digest = "1:fd9bea48bbc5bba66d9891c72af7255fbebecdff845c37c679406174ece5ca1b"
+  name = "github.com/kelseyhightower/envconfig"
   packages = ["."]
   pruneopts = "UT"
-  revision = "06ec0d0dbcd497d01e5189b16f5263f712e61a8e"
-  version = "v1.2.4"
+  revision = "0b417c4ec4a8a82eecc22a1459a504aa55163d61"
+  version = "v1.4.0"
 
 [[projects]]
-  digest = "1:0a69a1c0db3591fcefb47f115b224592c8dfa4368b7ba9fae509d5e16cdc95c8"
+  digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
-  version = "v1.0.1"
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
 
 [[projects]]
   digest = "1:c805e517269b0ba4c21ded5836019ed7d16953d4026cb7d00041d039c7906be9"
@@ -85,58 +85,44 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:b0c25f00bad20d783d259af2af8666969e2fc343fa0dc9efe52936bbd67fb758"
+  digest = "1:c5dfe46811af7e2eff7c11fc84b6c841520338613c056f659f262d5a4fb42fa8"
   name = "github.com/rs/cors"
   packages = ["."]
   pruneopts = "UT"
-  revision = "9a47f48565a795472d43519dd49aac781f3034fb"
-  version = "v1.6.0"
+  revision = "db0fe48135e83b5812a5a31be0eea66984b1b521"
+  version = "v1.7.0"
 
 [[projects]]
-  digest = "1:69b1cc331fca23d702bd72f860c6a647afd0aa9fcbc1d0659b1365e26546dd70"
+  digest = "1:04457f9f6f3ffc5fea48e71d62f2ca256637dee0a04d710288e27e05c8b41976"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   pruneopts = "UT"
-  revision = "bcd833dfe83d3cebad139e4a29ed79cb2318bf95"
-  version = "v1.2.0"
+  revision = "839c75faf7f98a33d445d181f3018b5c3409a45e"
+  version = "v1.4.2"
 
 [[projects]]
-  digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
+  digest = "1:8548c309c65a85933a625be5e7d52b6ac927ca30c56869fae58123b8a77a75e1"
   name = "github.com/stretchr/testify"
   packages = ["assert"]
   pruneopts = "UT"
-  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
-  version = "v1.2.2"
+  revision = "221dbe5ed46703ee255b1da0dec05086f5035f62"
+  version = "v1.4.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:3f3a05ae0b95893d90b9b3b5afdb79a9b3d96e4e36e099d841ae602e4aca0da8"
-  name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
-  pruneopts = "UT"
-  revision = "3d3f9f413869b949e48070b5bc593aa22cc2b8f2"
-
-[[projects]]
-  branch = "master"
-  digest = "1:1a1ecfa7b54ca3f7a0115ab5c578d7d6a5d8b605839c549e80260468c42f8be7"
-  name = "golang.org/x/net"
-  packages = [
-    "html",
-    "html/atom",
-  ]
-  pruneopts = "UT"
-  revision = "927f97764cc334a6575f4b7a1584a147864d5723"
-
-[[projects]]
-  branch = "master"
-  digest = "1:a089387bbfcfa884e5aafeebb85929993195bb8959766b1d20102841d47e0b0e"
+  digest = "1:999c8e6b10ddb08bc4ea3a56d4e838194c4884eac6ecf90a9aa98ed8475fdf37"
   name = "golang.org/x/sys"
-  packages = [
-    "unix",
-    "windows",
-  ]
+  packages = ["unix"]
   pruneopts = "UT"
-  revision = "93218def8b18e66adbdab3eca8ec334700329f1f"
+  revision = "195ce5e7f934b923d8fc432cf5a2561f2b334da9"
+
+[[projects]]
+  digest = "1:59f10c1537d2199d9115d946927fe31165959a95190849c82ff11e05803528b0"
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f221b8435cfb71e54062f6c6e99e9ade30b124d5"
+  version = "v2.2.4"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -145,9 +131,9 @@
     "github.com/Roverr/hotstreak",
     "github.com/brianvoe/gofakeit",
     "github.com/dgrijalva/jwt-go",
+    "github.com/google/uuid",
     "github.com/julienschmidt/httprouter",
     "github.com/kelseyhightower/envconfig",
-    "github.com/kennygrant/sanitize",
     "github.com/natefinch/lumberjack",
     "github.com/rs/cors",
     "github.com/sirupsen/logrus",

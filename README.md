@@ -196,13 +196,16 @@ The following list of players has been already tried out in production environme
 * Angular - [videogular](http://www.videogular.com/)
 * React - [ReactHLS](https://github.com/foxford/react-hls)
 
-## Coming soon features
+## Coming soon
+Codebase will be refactored as soon as I'll find some time to do it. 🙏
+That will mean a major version bump. The goal is still the same. Keep it relatively simple and easy to integrate.
+Solve the issue of not being able to play RTSP natively in browsers.
 
-✅ - Done
-
-🤷‍♂️ - Needs more labour
-
-* ✅ Proper logging - File logging for the output of ffmpeg with the option of rotating file log
-* ✅ Improved cleanup - Unused streams should be removed from the system after a while
-* 🤷‍♂️ API improvements - Delete endpoint for streams so clients can remove streams whenever they would like to
-* ✅  Authentication layer - More options for creating authentication within the service
+Plans for the future:
+- Throw out URI based directory creation completely
+- Add better logging and debug options
+- Separate HTTP from Stream processing completely
+- Add option to remove streams from the client (Could be tricky, gotta figure out if this should be an option even if non-authenticated mode is used)
+- Add better documentation about how to debug streams
+- Add documentation about how to create issues
+- Add guide for PRs
