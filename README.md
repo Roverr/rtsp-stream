@@ -21,7 +21,7 @@ rtsp-stream is an easy to use out of box solution that can be integrated into ex
 * [Run with Docker](#run-with-docker)
 * [UI](#ui)
 * [Proven players](#proven-players)
-* [Coming soon features](#coming-soon-features)
+* [Coming soon](#coming-soon)
 
 
 ## How does it work
