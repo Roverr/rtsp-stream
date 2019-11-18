@@ -59,6 +59,7 @@ func (p Processor) getHLSFlags() string {
 
 // NewProcess creates only the process for the stream
 func (p Processor) NewProcess(path, URI string) *exec.Cmd {
+	os.MkdirAll(path, os.ModePerm)
 	cmd := exec.Command(
 		"ffmpeg",
 		"-y",

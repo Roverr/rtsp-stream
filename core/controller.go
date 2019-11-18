@@ -125,6 +125,7 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		c.SendError(w, err, http.StatusBadRequest)
 		return
 	}
+	// Process streams that are already known in the system
 	if index, ok := c.index[dto.URI]; ok {
 		stream, ok := c.streams[index]
 		if !ok {
@@ -135,7 +136,10 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		c.handleAlreadyKnownStream(w, stream, c.spec, stream.StorePath)
 		return
 	}
-	streamResolved := c.startStream(dto.URI, c.spec)
+	// Process new streams
+	logrus.Infof("%s started processing", dto.URI)
+	stream, physicalPath, id := c.processor.NewStream(dto.URI)
+	streamResolved := c.manager.Start(stream.CMD, physicalPath)
 	select {
 	case <-time.After(c.timeout):
 		c.SendError(w, ErrTimeout, http.StatusRequestTimeout)
@@ -144,14 +148,9 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
 			return
 		}
-		index, ok := c.index[dto.URI]
-		if !ok {
-			logrus.Error("Did not find any index for ", dto.URI)
-			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
-			return
-		}
-		s := c.streams[index]
-		b, _ := json.Marshal(StreamDto{URI: s.Path})
+		c.streams[id] = stream
+		c.index[dto.URI] = id
+		b, _ := json.Marshal(StreamDto{URI: stream.Path})
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(b)
 	}
@@ -254,16 +253,6 @@ func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps ht
 	checkCh := c.manager.WaitForStream(fmt.Sprintf("%s/index.m3u8", s.StorePath))
 	<-checkCh
 	s.Streak.Activate().Hit()
-}
-
-// startStream creates a new stream then starts processing it with a manager
-func (c *Controller) startStream(uri string, spec *config.Specification) chan bool {
-	logrus.Infof("%s started processing", uri)
-	stream, physicalPath, id := c.processor.NewStream(uri)
-	c.streams[id] = stream
-	c.index[uri] = id
-	ch := c.manager.Start(stream.CMD, physicalPath)
-	return ch
 }
 
 // marshalValidateURI is for validiting that the URI is in a valid format
