@@ -65,13 +65,19 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 	if err != nil {
 		logrus.Fatal("Could not create new JWT provider: ", err)
 	}
+	processor := streaming.NewProcessor(
+		spec.Process.StoreDir,
+		spec.Process.Audio,
+		spec.Process.KeepFiles,
+		spec.ProcessLogging,
+	)
 	return &Controller{
 		spec,
 		map[string]*streaming.Stream{},
 		map[string]string{},
 		fileServer,
 		*manager,
-		streaming.NewProcessor(spec.Process.StoreDir, spec.Process.KeepFiles, spec.ProcessLogging),
+		processor,
 		time.Second * 15,
 		provider,
 	}

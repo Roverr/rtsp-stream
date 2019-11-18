@@ -3,7 +3,6 @@ package streaming
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +33,7 @@ type IProcessor interface {
 type Processor struct {
 	storeDir    string
 	keepFiles   bool
+	audio       bool
 	loggingOpts config.ProcessLogging
 }
 
@@ -44,9 +44,10 @@ var _ IProcessor = (*Processor)(nil)
 func NewProcessor(
 	storeDir string,
 	keepFiles bool,
+	audio bool,
 	loggingOpts config.ProcessLogging,
 ) *Processor {
-	return &Processor{storeDir, keepFiles, loggingOpts}
+	return &Processor{storeDir, audio, keepFiles, loggingOpts}
 }
 
 // getHLSFlags are for getting the flags based on the config context
@@ -60,8 +61,7 @@ func (p Processor) getHLSFlags() string {
 // NewProcess creates only the process for the stream
 func (p Processor) NewProcess(path, URI string) *exec.Cmd {
 	os.MkdirAll(path, os.ModePerm)
-	cmd := exec.Command(
-		"ffmpeg",
+	processCommands := []string{
 		"-y",
 		"-fflags",
 		"nobuffer",
@@ -76,7 +76,11 @@ func (p Processor) NewProcess(path, URI string) *exec.Cmd {
 		"copy",
 		"-movflags",
 		"frag_keyframe+empty_moov",
-		"-an",
+	}
+	if p.audio {
+		processCommands = append(processCommands, "-an")
+	}
+	processCommands = append(processCommands,
 		"-hls_flags",
 		p.getHLSFlags(),
 		"-f",
@@ -91,6 +95,7 @@ func (p Processor) NewProcess(path, URI string) *exec.Cmd {
 		fmt.Sprintf("%s/%%d.ts", path),
 		fmt.Sprintf("%s/index.m3u8", path),
 	)
+	cmd := exec.Command("ffmpeg", processCommands...)
 	return cmd
 }
 
@@ -152,17 +157,6 @@ func (p Processor) Restart(strm *Stream, path string) error {
 			logrus.Error(err)
 		}
 	}()
-	return nil
-}
-
-// ValidateURL checks if everything is present for the given URL
-func ValidateURL(URL *url.URL) error {
-	if URL == nil {
-		return ErrUnparsedURL
-	}
-	if URL.Hostname() == "" {
-		return ErrInvalidHost
-	}
 	return nil
 }
 
