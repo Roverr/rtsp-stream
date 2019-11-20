@@ -106,6 +106,12 @@ rtsp://nonexistent:invalid@hosting.dyndns.org:554/Streaming/Channels/102: Server
 
 While `exit status 1` is not the most detailed error, this is because the console of the service should not reflect underlying errors as they are. As the service is an abstraction over ffmpeg processes this is a much clearer way to obtain error messages.
 
+Furthermore you can attach a volume to the container to collect logs locally to a logs directory:
+```s
+docker run -v `pwd`/logs:/var/log/ -p 8080:8080 -e RTSP_STREAM_DEBUG=true roverr/rtsp-stream:1
+```
+Now you can do debugging without even going into the container.
+
 ### Management logs
 
 Obtaining logs in the management image is a bit trickier. As the management line is not the most supported way of using this service, you can encounter issues with it as well. Currently a systemd handles the processes which use the following configuration:
@@ -138,3 +144,7 @@ Usually you won't see anything in rtsp-stream.err.log and nothing in general in 
 
 
 The same rule works here as it works in the simple service. Setting `RTSP_STREAM_DEBUG=true` will enable process logging. Therefore logs for the processess will be also created in this image under `/var/log/rtsp-stream/`
+
+```s
+docker run -v `pwd`/logs:/var/log/ -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-management
+```

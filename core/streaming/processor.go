@@ -1,7 +1,6 @@
 package streaming
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,12 +14,6 @@ import (
 	"github.com/natefinch/lumberjack"
 	"github.com/sirupsen/logrus"
 )
-
-// ErrInvalidHost describes an error for a hostname that is considered invalid if it's empty
-var ErrInvalidHost = errors.New("Invalid hostname")
-
-// ErrUnparsedURL describes an error that occours when the parsing process cannot be deemed as successful
-var ErrUnparsedURL = errors.New("URL is not parsed correctly")
 
 // IProcessor is an interface describing a processor service
 type IProcessor interface {
@@ -101,7 +94,9 @@ func (p Processor) NewProcess(path, URI string) *exec.Cmd {
 
 // NewStream creates a new transcoding process for ffmpeg
 func (p Processor) NewStream(URI string) (*Stream, string, string) {
-	id, path, err := createDirectoryForURI(p.storeDir)
+	id := uuid.New().String()
+	path := fmt.Sprintf("%s/%s", p.storeDir, id)
+	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
 		logrus.Error(err)
 		return nil, "", ""
@@ -141,29 +136,23 @@ func (p Processor) NewStream(URI string) (*Stream, string, string) {
 }
 
 // Restart uses the processor to restart a given stream
-func (p Processor) Restart(strm *Stream, path string) error {
-	strm.Mux.Lock()
-	defer strm.Mux.Unlock()
-	strm.CMD = p.NewProcess(strm.StorePath, strm.OriginalURI)
+func (p Processor) Restart(stream *Stream, path string) error {
+	stream.Mux.Lock()
+	defer stream.Mux.Unlock()
+	stream.CMD = p.NewProcess(stream.StorePath, stream.OriginalURI)
 	if p.loggingOpts.Enabled {
-		strm.CMD.Stderr = strm.Logger
-		strm.CMD.Stdout = strm.Logger
+		stream.CMD.Stderr = stream.Logger
+		stream.CMD.Stdout = stream.Logger
 	}
-	strm.Streak.Activate()
-	go func() {
-		logrus.Infof("%s has been restarted", path)
-		err := strm.CMD.Run()
-		if err != nil {
-			logrus.Error(err)
-		}
-	}()
+	stream.Streak.Activate()
+	go p.spawnBackgroundRunProcess(stream.CMD)
+	logrus.Infof("%s has been restarted", path)
 	return nil
 }
 
-// createDirectoryForURI is to create a safe path based on the received URI
-func createDirectoryForURI(storeDir string) (id, path string, err error) {
-	id = uuid.New().String()
-	path = fmt.Sprintf("%s/%s", storeDir, id)
-	err = os.MkdirAll(path, os.ModePerm)
-	return
+func (p Processor) spawnBackgroundRunProcess(cmd *exec.Cmd) {
+	err := cmd.Run()
+	if err != nil {
+		logrus.Error(err)
+	}
 }
