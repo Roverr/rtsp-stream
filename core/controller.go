@@ -53,7 +53,6 @@ type Controller struct {
 	index      map[string]string
 	fileServer http.Handler
 	manager    IManager
-	processor  streaming.IProcessor
 	timeout    time.Duration
 	jwt        auth.JWT
 }
@@ -65,19 +64,12 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 	if err != nil {
 		logrus.Fatal("Could not create new JWT provider: ", err)
 	}
-	processor := streaming.NewProcessor(
-		spec.Process.StoreDir,
-		spec.Process.Audio,
-		spec.Process.KeepFiles,
-		spec.ProcessLogging,
-	)
 	return &Controller{
 		spec,
 		map[string]*streaming.Stream{},
 		map[string]string{},
 		fileServer,
 		*manager,
-		processor,
 		time.Second * 15,
 		provider,
 	}
@@ -133,33 +125,37 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 	}
 	// Process streams that are already known in the system
 	if index, ok := c.index[dto.URI]; ok {
-		stream, ok := c.streams[index]
+		_, ok := c.streams[index]
 		if !ok {
 			logrus.Error("Missing index for URI: ", dto.URI)
 			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
 			return
 		}
-		c.handleAlreadyKnownStream(w, stream, c.spec, stream.StorePath)
+		/*c.handleAlreadyKnownStream(w, stream, c.spec, stream.StorePath)*/
 		return
 	}
 	// Process new streams
-	logrus.Infof("%s started processing", dto.URI)
-	stream, physicalPath, id := c.processor.NewStream(dto.URI)
-	streamResolved := c.manager.Start(stream.CMD, physicalPath)
-	select {
-	case <-time.After(c.timeout):
+	stream, id := streaming.NewStream(
+		dto.URI,
+		c.spec.StoreDir,
+		c.spec.KeepFiles,
+		c.spec.Audio,
+		c.spec.ProcessLogging,
+		25*time.Second,
+	)
+
+	stream.Start().Wait()
+	if !stream.Running {
+		logrus.Debugln("Sending out error for request timeout")
 		c.SendError(w, ErrTimeout, http.StatusRequestTimeout)
-	case success := <-streamResolved:
-		if !success {
-			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
-			return
-		}
-		c.streams[id] = stream
-		c.index[dto.URI] = id
-		b, _ := json.Marshal(StreamDto{URI: stream.Path})
-		w.Header().Add("Content-Type", "application/json")
-		w.Write(b)
+		return
 	}
+	logrus.Infof("%s started processing", dto.URI)
+	c.streams[id] = stream
+	c.index[dto.URI] = id
+	b, _ := json.Marshal(StreamDto{URI: stream.Path})
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(b)
 }
 
 // ExitHandler is a function that can recognise when the application is being closed
@@ -176,6 +172,7 @@ func (c *Controller) ExitHandler() chan bool {
 	return done
 }
 
+/*
 // handleAlreadyKnownStream is for dealing with stream starts that are already initiated before
 func (c *Controller) handleAlreadyKnownStream(w http.ResponseWriter, strm *streaming.Stream, spec *config.Specification, dir string) {
 	// If transcoding is not running, spin it back up
@@ -198,7 +195,7 @@ func (c *Controller) handleAlreadyKnownStream(w http.ResponseWriter, strm *strea
 	<-checkCh
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(b)
-}
+}*/
 
 // cleanUp stops all running processes
 func (c *Controller) cleanUp() {
@@ -251,14 +248,16 @@ func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps ht
 		s.Streak.Hit()
 		return
 	}
-	logrus.Debugf("%s is getting restarted", hostKey)
-	if err := c.processor.Restart(s, hostKey); err != nil {
-		logrus.Error(err)
-		return
-	}
-	checkCh := c.manager.WaitForStream(fmt.Sprintf("%s/index.m3u8", s.StorePath))
-	<-checkCh
-	s.Streak.Activate().Hit()
+	return
+	/*
+		logrus.Debugf("%s is getting restarted", hostKey)
+		if err := c.processor.Restart(s, hostKey); err != nil {
+			logrus.Error(err)
+			return
+		}
+		checkCh := c.manager.WaitForStream(fmt.Sprintf("%s/index.m3u8", s.StorePath))
+		<-checkCh
+		s.Streak.Activate().Hit()*/
 }
 
 // marshalValidateURI is for validiting that the URI is in a valid format

@@ -6,7 +6,7 @@
  ![GitHub last commit](https://img.shields.io/github/last-commit/Roverr/rtsp-stream.svg)
  ![GitHub release](https://img.shields.io/github/release/Roverr/rtsp-stream.svg)
 
-rtsp-stream is an easy to use out of box solution that can be integrated into existing systems resolving the problem of not being able to play rtsp stream natively in browsers. 
+rtsp-stream is an easy to use, out of box solution that can be integrated into existing systems resolving the problem of not being able to play raw rtsp stream natively in browsers. 
 
 ## Table of contents
 * [How does it work](#how-does-it-work)
@@ -17,15 +17,26 @@ rtsp-stream is an easy to use out of box solution that can be integrated into ex
 * [Configuration](#configuration)
 * [UI](#ui)
 * [Debug](#debug)
+* [Contributions and reporting issues](#contributions-and-reporting-issues)
 * [Proven players](#proven-players)
-* [Coming soon](#coming-soon)
+* [Support](#support)
 
 ## How does it work
-It converts `RTSP` streams into `HLS` based on traffic. The idea behind this is that the application should not transcode anything until someone is actually watching the stream. This can help with network bottlenecks in systems where there are a lot of cameras installed.
 
-There's a running go routine in the background that checks if a stream is being active or not. If it's not the transcoding stops until the next request for that stream.
+The application converts raw `RTSP` streams into `HLS`.<br/>
+The goal is make raw RTSP streams easily playable in browsers using HLS.
+
+**Supports transcoding based on traffic**<br/>
+The idea behind this is that it should not transcode anything until someone is actually watching the stream. This can help with network bottlenecks in systems where there are a lot of cameras installed.<br/>
+There is a running go routine in the background that checks if a stream is being active or not. If it's not active anymore, the transcoding stops until the next request for that stream.
+
+This functionality is configurable though so you can use it as a normal transcoding service if you would like.
 
 ## Run with Docker
+
+Why should you use it with Docker?<br/>
+Because the application relies on ffmpeg heavily therefore ensuring the environment is much easier with docker as everything comes with the image and you do not have to install anything besides docker. Other than installation, this way we can also avoid compatibility issues between operating systems.
+
 The application has an offical [Docker repository](https://hub.docker.com/r/roverr/rtsp-stream/) at Dockerhub, therefore you can easily run it with simple commands:
 
 ```s
@@ -54,9 +65,11 @@ if you just wanna try it out, maybe for home use.
 
 You can use shared key JWT authentication for the service.
 
-The service itself does not create any tokens, but your authentication service can create.
-After it's created it can be validated in the transcoder using the same secret / keys.
+The service does not create any tokens, but your authentication service can create.<br/>
+After it's created it can be validated in the transcoder using the same secret / keys.<br/>
 It is the easiest way to integrate into existing systems.
+
+<img src="https://i.imgur.com/j2dfmzf.png"/>
 
 The following environment variables are available for this setup:
 
@@ -68,8 +81,6 @@ The following environment variables are available for this setup:
 | RTSP_STREAM_AUTH_JWT_METHOD | Can be `secret` or `rsa`. Changes how the application does the JWT verification.| `secret` | string |
 
 You won't need the private key for it because no signing happens in this application.
-
-<img src="https://i.imgur.com/j2dfmzf.png"/>
 
 ## Configuration
 
@@ -116,15 +127,9 @@ The following list of players has been already tried out in production environme
 
 See more information about [this here](docs/contribution/README.md).
 
-## Coming soon
-Codebase will be refactored as soon as I'll find some time to do it. 🙏
-That will mean a major version bump. The goal is still the same. Keep it relatively simple and easy to integrate.
-Solve the issue of not being able to play RTSP natively in browsers.
+## Support
 
-Plans for the future:
-- Add better logging and debug options
-- Separate HTTP from Stream processing completely
-- Add option to remove streams from the client (Could be tricky, gotta figure out if this should be an option even if non-authenticated mode is used)
-- Add better documentation about how to debug streams
-- Add documentation about how to create issues
-- Add guide for PRs
+Wanna support the development of this project and possibly other interesting open source solutions?<br/>
+Invite me for a cup of hot coffee to boost my spirit in these trying times. :sleeping: :heart:
+ 
+<a href="https://www.buymeacoffee.com/li7JPgf" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/lato-blue.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
