@@ -17,7 +17,7 @@ func main() {
 	config := config.InitConfig()
 	core.SetupLogger(config)
 	router, ctrls := core.GetRouter(config)
-	done := ctrls.ExitHandler()
+	done := ctrls.ExitPreHook()
 	handler := cors.AllowAll().Handler(router)
 	if config.CORS.Enabled {
 		handler = cors.New(cors.Options{
@@ -26,7 +26,7 @@ func main() {
 			MaxAge:           config.CORS.MaxAge,
 		}).Handler(router)
 	}
-	logrus.Infof("RTSP-STREAM started on %d", config.Port)
+	logrus.Infof("rtsp-stream transcoder started on %d | MainProcess", config.Port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), handler))
 	<-done
 	os.Exit(0)

@@ -26,11 +26,12 @@ type IStream interface {
 
 // Stream describes a given host's streaming
 type Stream struct {
+	ID          string                 `json:"id"`
 	Path        string                 `json:"path"`
 	Running     bool                   `json:"running"`
 	CMD         *exec.Cmd              `json:"-"`
-	Processing  IProcessor             `json:"-"`
-	Mux         *sync.RWMutex          `json:"-"`
+	Process     IProcess               `json:"-"`
+	Mux         *sync.Mutex            `json:"-"`
 	Streak      *hotstreak.Hotstreak   `json:"-"`
 	OriginalURI string                 `json:"-"`
 	StorePath   string                 `json:"-"`
@@ -59,8 +60,8 @@ func NewStream(
 		logrus.Error(err)
 		return nil, ""
 	}
-	processing := NewProcessor(keepFiles, audio, loggingOpts)
-	cmd := processing.NewProcess(path, URI)
+	process := NewProcess(keepFiles, audio, loggingOpts)
+	cmd := process.Spawn(path, URI)
 
 	// Create nil pointer in case logging is not enabled
 	cmdLogger := (*lumberjack.Logger)(nil)
@@ -77,11 +78,12 @@ func NewStream(
 		cmd.Stdout = cmdLogger
 	}
 	stream := Stream{
-		CMD:        cmd,
-		Processing: processing,
-		Mux:        &sync.RWMutex{},
-		Path:       fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", id)),
-		StorePath:  path,
+		ID:        id,
+		CMD:       cmd,
+		Process:   process,
+		Mux:       &sync.Mutex{},
+		Path:      fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", id)),
+		StorePath: path,
 		Streak: hotstreak.New(hotstreak.Config{
 			Limit:      10,
 			HotWait:    time.Minute * 2,
@@ -94,7 +96,7 @@ func NewStream(
 		Running:     false,
 		WaitTimeOut: waitTimeOut,
 	}
-	logrus.Debugf("Created stream with storepath %s", stream.StorePath)
+	logrus.Debugf("%s store path created | Stream", stream.StorePath)
 	return &stream, id
 }
 
@@ -110,11 +112,11 @@ func (strm *Stream) Start() *sync.WaitGroup {
 	indexPath := fmt.Sprintf("%s/index.m3u8", strm.StorePath)
 	// Run the transcoding, resolve stream if it errors out
 	go func() {
-		logrus.Debugf("Running CMD process for %s", strm.OriginalURI)
+		logrus.Debugf("%s is starting FFMPEG process | Stream", strm.ID)
 		if err := strm.CMD.Run(); err != nil {
 			once.Do(func() {
-				logrus.Errorf("Error happened during starting of %s || Error: %s",
-					indexPath,
+				logrus.Errorf("%s process could not start. | Stream\n Error: %s",
+					strm.ID,
 					err,
 				)
 				strm.Running = false
@@ -132,7 +134,10 @@ func (strm *Stream) Start() *sync.WaitGroup {
 				continue
 			}
 			once.Do(func() {
-				logrus.Debugf("Starting of %s was successful - index.m3u8 is found", strm.OriginalURI)
+				logrus.Debugf("%s - %s successfully started - index.m3u8 found | Stream",
+					strm.ID,
+					strm.OriginalURI,
+				)
 				strm.Running = true
 				strm.Mux.Unlock()
 				wg.Done()
@@ -145,8 +150,8 @@ func (strm *Stream) Start() *sync.WaitGroup {
 		<-time.After(strm.WaitTimeOut)
 		once.Do(func() {
 			logrus.Errorf(
-				"%s timed out while waiting for file creation in manager start",
-				indexPath,
+				"%s process starting timed out | Stream",
+				strm.ID,
 			)
 			strm.Running = false
 			strm.Mux.Unlock()
@@ -166,7 +171,7 @@ func (strm *Stream) Restart() *sync.WaitGroup {
 	if strm.CMD != nil && strm.CMD.ProcessState != nil {
 		strm.CMD.Process.Kill()
 	}
-	strm.CMD = strm.Processing.NewProcess(strm.StorePath, strm.OriginalURI)
+	strm.CMD = strm.Process.Spawn(strm.StorePath, strm.OriginalURI)
 	if strm.LoggingOpts.Enabled {
 		strm.CMD.Stderr = strm.Logger
 		strm.CMD.Stdout = strm.Logger
@@ -179,16 +184,17 @@ func (strm *Stream) Restart() *sync.WaitGroup {
 // Stop makes sure that the transcoding process is killed correctly
 func (strm *Stream) Stop() error {
 	strm.Mux.Lock()
+	defer strm.Mux.Unlock()
 	strm.Streak.Deactivate()
+	strm.Running = false
 	if !strm.KeepFiles {
 		defer func() {
-			logrus.Debugf("%s directory is being cleaned", strm.StorePath)
+			logrus.Debugf("%s directory is being removed | Stream", strm.StorePath)
 			if err := os.RemoveAll(strm.StorePath); err != nil {
 				logrus.Error(err)
 			}
 		}()
 	}
-	defer strm.Mux.Unlock()
 	if err := strm.CMD.Process.Kill(); err != nil {
 		if strings.Contains(err.Error(), "process already finished") {
 			return nil

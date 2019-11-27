@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -120,18 +119,18 @@ func (c *Controller) stopInactiveStreams() {
 	for name, stream := range c.streams {
 		// If the streak is active, there is no need for stopping
 		if stream.Streak.IsActive() {
-			logrus.Infof("%s is active, skipping cleaning process", name)
+			logrus.Infof("%s is active. Skipping. | Inactivity cleaning", name)
 			continue
 		}
-		logrus.Infof("%s is being stopped. Stream is not active.", name)
+		if !stream.Running {
+			logrus.Debugf("%s is not running. Skipping. | Inactivity cleaning", name)
+			continue
+		}
+		logrus.Infof("%s is being stopped | Inactivity cleaning", name)
 		if err := stream.Stop(); err != nil {
-			if strings.Contains(err.Error(), "signal: killed") {
-				logrus.Infof("\n%s is cleaned", name)
-				continue
-			}
 			logrus.Error(err)
 		}
-		logrus.Infof("%s is cleaned", name)
+		logrus.Infof("%s is stopped | Inactivity cleaning", name)
 	}
 }
 
@@ -148,11 +147,11 @@ func (c *Controller) sendError(w http.ResponseWriter, err error, status int) {
 // sendStart sends response for clients calling /start
 func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *streaming.Stream) {
 	if !stream.Running {
-		logrus.Debugln("Sending out error for request timeout")
+		logrus.Debugln("Sending out error for request timeout | StartHandler")
 		c.sendError(w, ErrTimeout, http.StatusRequestTimeout)
 		return
 	}
-	logrus.Infof("%s started processing", stream.OriginalURI)
+	logrus.Infof("%s started processing | StartHandler", stream.OriginalURI)
 	b, _ := json.Marshal(StreamDto{URI: stream.Path})
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(b)
@@ -189,15 +188,16 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		c.sendError(w, err, http.StatusBadRequest)
 		return
 	}
+	logrus.Debugf("%s is requested on /start | StartHandler", dto.URI)
 	index, knownStream := c.index[dto.URI]
 	if knownStream {
 		stream, ok := c.streams[index]
 		if !ok {
-			logrus.Error("Missing index for URI: ", dto.URI)
+			logrus.Errorf("Missing index for URI: %s | StartHandler", dto.URI)
 			c.sendError(w, ErrUnexpected, http.StatusInternalServerError)
 			return
 		}
-		if stream.CMD != nil && stream.CMD.ProcessState != nil && !stream.CMD.ProcessState.Exited() {
+		if stream.Running {
 			c.sendStart(w, true, stream)
 			return
 		}
@@ -239,7 +239,7 @@ func (c *Controller) StaticFileHandler(w http.ResponseWriter, req *http.Request,
 		stream.Streak.Hit()
 		return
 	}
-	logrus.Debugf("%s is getting restarted via file requests", id)
+	logrus.Debugf("%s is getting restarted via file requests | FileHandler", id)
 	stream.Restart().Wait()
 }
 

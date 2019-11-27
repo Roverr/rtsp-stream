@@ -26,6 +26,10 @@ rtsp-stream is an easy to use, out of box solution that can be integrated into e
 The application converts raw `RTSP` streams into `HLS`.<br/>
 The goal is make raw RTSP streams easily playable in browsers using HLS.
 
+<p align="center">
+  <img src="https://i.imgur.com/02X4uCX.png">
+</p>
+
 **Supports transcoding based on traffic**<br/>
 The idea behind this is that it should not transcode anything until someone is actually watching the stream. This can help with network bottlenecks in systems where there are a lot of cameras installed.<br/>
 There is a running go routine in the background that checks if a stream is being active or not. If it's not active anymore, the transcoding stops until the next request for that stream.
@@ -69,7 +73,9 @@ The service does not create any tokens, but your authentication service can crea
 After it's created it can be validated in the transcoder using the same secret / keys.<br/>
 It is the easiest way to integrate into existing systems.
 
-<img src="https://i.imgur.com/j2dfmzf.png"/>
+<p align="center">
+  <img width="600" height="500" src="https://i.imgur.com/j2dfmzf.png"/>
+</p>
 
 The following environment variables are available for this setup:
 

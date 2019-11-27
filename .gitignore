@@ -20,3 +20,4 @@ videos
 node_modules
 dist
 .cache
+log
