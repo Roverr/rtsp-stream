@@ -3,14 +3,13 @@ package core
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/julienschmidt/httprouter"
 )
 
-// determinesHost is for parsing out the host from the storage path
-func determineHost(path string) string {
+// getIDByPath is for parsing out the unique ID of the stream from URL path
+func getIDByPath(path string) string {
 	parts := strings.Split(path, "/")
 	if len(parts) >= 1 {
 		return parts[1]
@@ -30,15 +29,6 @@ func GetRouter(config *config.Specification) (*httprouter.Router, *Controller) {
 		w.WriteHeader(http.StatusOK)
 	})
 	router.POST("/start", controllers.StartStreamHandler)
-	router.GET("/stream/*filepath", controllers.FileHandler)
-
-	// Start cleaning process in the background
-	go func() {
-		for {
-			<-time.After(config.CleanupTime)
-			controllers.cleanUnused()
-		}
-	}()
-
+	router.GET("/stream/*filepath", controllers.StaticFileHandler)
 	return router, controllers
 }

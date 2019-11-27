@@ -7,23 +7,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDetermineHost(t *testing.T) {
+func TestGetIDByPath(t *testing.T) {
 	tt := []struct {
 		Input  string
 		Output string
 	}{
 		{
-			Input:  "/192-168-0-1-channels-robinsion-001/index.m3u8",
-			Output: "192-168-0-1-channels-robinsion-001",
+			Input:  "/73f23853-f041-4cce-84fa-c237b9b0be92/index.m3u8",
+			Output: "73f23853-f041-4cce-84fa-c237b9b0be92",
 		},
 		{
-			Input:  "/192-168-0-1-channels-wwww-001/asd.jpeg",
-			Output: "192-168-0-1-channels-wwww-001",
+			Input:  "/73f23853-f041-4cce-84fa-c237b9b0be92/1.ts",
+			Output: "73f23853-f041-4cce-84fa-c237b9b0be92",
 		},
 	}
 
 	for i, testCase := range tt {
-		if !assert.Equal(t, testCase.Output, determineHost(testCase.Input)) {
+		if !assert.Equal(t, testCase.Output, getIDByPath(testCase.Input)) {
 			t.Error(fmt.Errorf("%d testcase is failing", i))
 		}
 	}

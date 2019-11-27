@@ -17,6 +17,13 @@ import (
 	"github.com/Roverr/rtsp-stream/core/config"
 )
 
+// IStream is almost like icecream, that's why it is perfect
+type IStream interface {
+	Start() *sync.WaitGroup
+	Restart() *sync.WaitGroup
+	Stop() error
+}
+
 // Stream describes a given host's streaming
 type Stream struct {
 	Path        string                 `json:"path"`
@@ -32,6 +39,9 @@ type Stream struct {
 	Logger      *lumberjack.Logger     `json:"-"`
 	WaitTimeOut time.Duration          `json:"-"`
 }
+
+// Type check
+var _ IStream = (*Stream)(nil)
 
 // NewStream creates a new transcoding process for ffmpeg
 func NewStream(
@@ -67,10 +77,11 @@ func NewStream(
 		cmd.Stdout = cmdLogger
 	}
 	stream := Stream{
-		CMD:       cmd,
-		Mux:       &sync.RWMutex{},
-		Path:      fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", id)),
-		StorePath: path,
+		CMD:        cmd,
+		Processing: processing,
+		Mux:        &sync.RWMutex{},
+		Path:       fmt.Sprintf("/%s/index.m3u8", filepath.Join("stream", id)),
+		StorePath:  path,
 		Streak: hotstreak.New(hotstreak.Config{
 			Limit:      10,
 			HotWait:    time.Minute * 2,
@@ -92,19 +103,26 @@ func (strm *Stream) Start() *sync.WaitGroup {
 	if strm == nil {
 		return nil
 	}
-	// Start running of the process
-	go func() {
-		if err := strm.CMD.Run(); err != nil {
-			logrus.Error(err)
-		}
-	}()
-
-	// Init synchronization components
+	strm.Mux.Lock()
 	var once sync.Once
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-
 	indexPath := fmt.Sprintf("%s/index.m3u8", strm.StorePath)
+	// Run the transcoding, resolve stream if it errors out
+	go func() {
+		logrus.Debugf("Running CMD process for %s", strm.OriginalURI)
+		if err := strm.CMD.Run(); err != nil {
+			once.Do(func() {
+				logrus.Errorf("Error happened during starting of %s || Error: %s",
+					indexPath,
+					err,
+				)
+				strm.Running = false
+				strm.Mux.Unlock()
+				wg.Done()
+			})
+		}
+	}()
 	// Try scanning for the file, resolve if we found index.m3u8
 	go func() {
 		for {
@@ -113,68 +131,62 @@ func (strm *Stream) Start() *sync.WaitGroup {
 				<-time.After(25 * time.Millisecond)
 				continue
 			}
-			once.Do(func() { logrus.Debugln("FASZA"); strm.Running = true; wg.Done() })
+			once.Do(func() {
+				logrus.Debugf("Starting of %s was successful - index.m3u8 is found", strm.OriginalURI)
+				strm.Running = true
+				strm.Mux.Unlock()
+				wg.Done()
+			})
 			return
 		}
 	}()
-
-	// Run the transcoding, resolve stream if it errors out
-	go func() {
-		if err := strm.CMD.Run(); err != nil {
-			once.Do(func() {
-				logrus.Errorf("Error happened during starting of %s || Error: %s",
-					indexPath,
-					err,
-				)
-				strm.Running = false
-				wg.Done()
-			})
-		}
-	}()
-
 	// After a certain time if nothing happens, just error it out
 	go func() {
 		<-time.After(strm.WaitTimeOut)
 		once.Do(func() {
-			logrus.Error(
-				fmt.Errorf("%s timed out while waiting for file creation in manager start",
-					indexPath,
-				),
+			logrus.Errorf(
+				"%s timed out while waiting for file creation in manager start",
+				indexPath,
 			)
 			strm.Running = false
+			strm.Mux.Unlock()
 			wg.Done()
 		})
 	}()
-
 	// Return channel for synchronization
 	return wg
 }
 
 // Restart restarts the given CMD
-func (strm *Stream) Restart() error {
+func (strm *Stream) Restart() *sync.WaitGroup {
+	if strm == nil {
+		return nil
+	}
 	strm.Mux.Lock()
-	defer strm.Mux.Unlock()
+	if strm.CMD != nil && strm.CMD.ProcessState != nil {
+		strm.CMD.Process.Kill()
+	}
 	strm.CMD = strm.Processing.NewProcess(strm.StorePath, strm.OriginalURI)
 	if strm.LoggingOpts.Enabled {
 		strm.CMD.Stderr = strm.Logger
 		strm.CMD.Stdout = strm.Logger
 	}
-	strm.Streak.Activate()
-	go func() {
-		if err := strm.CMD.Run(); err != nil {
-			logrus.Error(err)
-		}
-	}()
-	logrus.Infof("%s has been restarted", strm.Path)
-	return nil
+	strm.Streak.Activate().Hit()
+	strm.Mux.Unlock()
+	return strm.Start()
 }
 
-// CleanProcess makes sure that the transcoding process is killed correctly
-func (strm *Stream) CleanProcess() error {
+// Stop makes sure that the transcoding process is killed correctly
+func (strm *Stream) Stop() error {
 	strm.Mux.Lock()
 	strm.Streak.Deactivate()
 	if !strm.KeepFiles {
-		defer strm.cleanDir()
+		defer func() {
+			logrus.Debugf("%s directory is being cleaned", strm.StorePath)
+			if err := os.RemoveAll(strm.StorePath); err != nil {
+				logrus.Error(err)
+			}
+		}()
 	}
 	defer strm.Mux.Unlock()
 	if err := strm.CMD.Process.Kill(); err != nil {
@@ -187,12 +199,4 @@ func (strm *Stream) CleanProcess() error {
 		return err
 	}
 	return nil
-}
-
-// cleanDir cleans the directory that includes files of the already stopped stream
-func (strm *Stream) cleanDir() {
-	logrus.Debugf("%s directory is being cleaned", strm.StorePath)
-	if err := os.RemoveAll(strm.StorePath); err != nil {
-		logrus.Error(err)
-	}
 }
