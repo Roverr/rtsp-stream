@@ -1,6 +1,8 @@
 package blacklist
 
-import "time"
+import (
+	"time"
+)
 
 // IRecord describes the user panel of BlacklistRecord
 type IRecord interface {
