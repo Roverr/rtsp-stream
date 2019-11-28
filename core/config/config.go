@@ -35,11 +35,14 @@ type ProcessLogging struct {
 
 // Process describes information regarding the transcoding process
 type Process struct {
-	CleanupEnabled bool          `envconfig:"CLEANUP_ENABLED" default:"true"` // Time period between process cleaning
-	CleanupTime    time.Duration `envconfig:"CLEANUP_TIME" default:"2m0s"`    // Time period between process cleaning
-	StoreDir       string        `envconfig:"STORE_DIR" default:"./videos"`   // Directory to store / service video chunks
-	KeepFiles      bool          `envconfig:"KEEP_FILES" default:"false"`     // Option for not deleting files
-	Audio          bool          `envconfig:"AUDIO_ENABLED" default:"true"`   // Option for enabling audio
+	BlacklistEnabled bool          `envconfig:"BLACKLIST_ENABLED" default:"25"` // How many times a stream has to be wrong before blacklisting
+	BlacklistLimit   int           `envconfig:"BLACKLIST_LIMIT" default:"25"`   // How many times a stream has to be wrong before blacklisting
+	BlacklistTime    time.Duration `envconfig:"BLACKLIST_TIME" default:"1h"`    // Time period for blacklist to remove lements
+	CleanupEnabled   bool          `envconfig:"CLEANUP_ENABLED" default:"true"` // Option to turn of cleanup
+	CleanupTime      time.Duration `envconfig:"CLEANUP_TIME" default:"2m0s"`    // Time period between process cleaning
+	StoreDir         string        `envconfig:"STORE_DIR" default:"./videos"`   // Directory to store / service video chunks
+	KeepFiles        bool          `envconfig:"KEEP_FILES" default:"false"`     // Option for not deleting files
+	Audio            bool          `envconfig:"AUDIO_ENABLED" default:"true"`   // Option for enabling audio
 }
 
 // Specification describes the application context settings

@@ -18,6 +18,7 @@ docker-debug: ## Builds management image and starts it in debug mode
 	docker run -d \
 	-v `pwd`/log:/var/log \
 	-e RTSP_STREAM_DEBUG=true \
+	-e RTSP_STREAM_BLACKLIST_COUNT=2 \
 	-p 3000:80 -p 8080:8080 \
 	roverr/rtsp-stream:1-management
 docker-all: ## Runs tests then builds all versions of docker images

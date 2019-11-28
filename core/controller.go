@@ -10,10 +10,12 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/Roverr/rtsp-stream/core/auth"
+	"github.com/Roverr/rtsp-stream/core/blacklist"
 	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
@@ -40,6 +42,7 @@ type SummariseDTO struct {
 // IController describes main functions for the controller
 type IController interface {
 	marshalValidatedURI(dto *StreamDto, body io.Reader) error                       // marshals and validates request body for /start
+	getIDByPath(path string) string                                                 // determines ID from the file access URL
 	isAuthenticated(r *http.Request) bool                                           // enforces JWT authentication if config is enabled
 	stopInactiveStreams()                                                           // used periodically to stop streams
 	sendError(w http.ResponseWriter, err error, status int)                         // used by Handlers to send out errors
@@ -55,6 +58,7 @@ type Controller struct {
 	spec       *config.Specification
 	streams    map[string]*streaming.Stream
 	index      map[string]string
+	blacklist  blacklist.IList
 	fileServer http.Handler
 	timeout    time.Duration
 	jwt        auth.JWT
@@ -73,9 +77,13 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 		spec,
 		map[string]*streaming.Stream{},
 		map[string]string{},
+		nil,
 		fileServer,
 		time.Second * 15,
 		provider,
+	}
+	if spec.BlacklistEnabled {
+		ctrl.blacklist = blacklist.NewList(spec.BlacklistTime, spec.BlacklistLimit)
 	}
 	if spec.CleanupEnabled {
 		go func() {
@@ -103,6 +111,15 @@ func (c *Controller) marshalValidatedURI(dto *StreamDto, body io.Reader) error {
 		return errors.New("Invalid URI")
 	}
 	return nil
+}
+
+// getIDByPath is for parsing out the unique ID of the stream from URL path
+func (c *Controller) getIDByPath(path string) string {
+	parts := strings.Split(path, "/")
+	if len(parts) >= 1 {
+		return parts[1]
+	}
+	return ""
 }
 
 // isAuthenticated is for checking if the user's request is valid or not
@@ -189,6 +206,11 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	logrus.Debugf("%s is requested on /start | StartHandler", dto.URI)
+	if c.blacklist.IsBanned(dto.URI) {
+		logrus.Infof("%s is rejected because of blacklist | StartHandler", dto.URI)
+		c.sendError(w, fmt.Errorf("%s cannot be started", dto.URI), http.StatusTooManyRequests)
+		return
+	}
 	index, knownStream := c.index[dto.URI]
 	if knownStream {
 		stream, ok := c.streams[index]
@@ -217,6 +239,9 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 	if stream.Running {
 		c.streams[id] = stream
 		c.index[dto.URI] = id
+		c.blacklist.Remove(dto.URI)
+	} else {
+		c.blacklist.AddOrIncrease(dto.URI)
 	}
 	c.sendStart(w, stream.Running, stream)
 }
@@ -230,7 +255,7 @@ func (c *Controller) StaticFileHandler(w http.ResponseWriter, req *http.Request,
 	defer c.fileServer.ServeHTTP(w, req)
 	filepath := ps.ByName("filepath")
 	req.URL.Path = filepath
-	id := getIDByPath(filepath)
+	id := c.getIDByPath(filepath)
 	stream, ok := c.streams[id]
 	if !ok {
 		return

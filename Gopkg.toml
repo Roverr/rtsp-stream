@@ -34,8 +34,8 @@
   version = "1.2.0"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/Roverr/hotstreak"
+  version = "1.0.0"
 
 [[constraint]]
   name = "github.com/kelseyhightower/envconfig"
@@ -52,10 +52,6 @@
 [[constraint]]
   name = "github.com/rs/cors"
   version = "1.6.0"
-
-[[constraint]]
-  name = "github.com/brianvoe/gofakeit"
-  version = "3.15.0"
 
 [[constraint]]
   name = "github.com/dgrijalva/jwt-go"

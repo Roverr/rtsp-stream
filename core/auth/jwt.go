@@ -48,7 +48,7 @@ func (jp JWTProvider) Validate(tokenString string) bool {
 	ts := strings.Replace(tokenString, "Bearer ", "", -1)
 	token, err := jwt.Parse(ts, jp.verify)
 	if err != nil {
-		logrus.Errorln("Error at token verification ", err)
+		logrus.Errorf("Error at token verification %s | JWTProvider", err)
 		return false
 	}
 	return token.Valid

@@ -8,6 +8,7 @@ import (
 )
 
 func TestGetIDByPath(t *testing.T) {
+	var ctrl *Controller
 	tt := []struct {
 		Input  string
 		Output string
@@ -23,7 +24,7 @@ func TestGetIDByPath(t *testing.T) {
 	}
 
 	for i, testCase := range tt {
-		if !assert.Equal(t, testCase.Output, getIDByPath(testCase.Input)) {
+		if !assert.Equal(t, testCase.Output, ctrl.getIDByPath(testCase.Input)) {
 			t.Error(fmt.Errorf("%d testcase is failing", i))
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 
 	"github.com/Roverr/rtsp-stream/core"
@@ -16,8 +17,18 @@ import (
 func main() {
 	config := config.InitConfig()
 	core.SetupLogger(config)
-	router, ctrls := core.GetRouter(config)
-	done := ctrls.ExitPreHook()
+	fileServer := http.FileServer(http.Dir(config.StoreDir))
+	router := httprouter.New()
+	controllers := core.NewController(config, fileServer)
+	if config.ListEndpoint {
+		router.GET("/list", controllers.ListStreamHandler)
+	}
+	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.WriteHeader(http.StatusOK)
+	})
+	router.POST("/start", controllers.StartStreamHandler)
+	router.GET("/stream/*filepath", controllers.StaticFileHandler)
+	done := controllers.ExitPreHook()
 	handler := cors.AllowAll().Handler(router)
 	if config.CORS.Enabled {
 		handler = cors.New(cors.Options{
