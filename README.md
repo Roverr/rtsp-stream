@@ -136,6 +136,4 @@ See more information about [this here](docs/contribution/README.md).
 ## Support
 
 Wanna support the development of this project and possibly other interesting open source solutions?<br/>
-Invite me for a cup of hot coffee to boost my spirit in these trying times. :sleeping: :heart:
- 
-<a href="https://www.buymeacoffee.com/li7JPgf" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/lato-blue.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
+Consider buying me a cup of hot coffee to boost my spirit in these trying times. :sleeping: :heart:

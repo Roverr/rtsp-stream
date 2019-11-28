@@ -6,16 +6,6 @@ You can configure the following settings in the application with environment var
 
 The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for the log rotation of the ffmpeg transcoding processes.
 
-#### RTSP_STREAM_BLACKLIST_LIMIT
-Default: `25`<br/>
-Type: int<br/>
-Description: Determines how many times a given URI can be tried to start. After this amount the given URI is getting blacklisted<br/>
-
-#### RTSP_STREAM_BLACKLIST_TIME
-Default: `1h`<br/>
-Type: string<br/>
-Description: Time period which after a blacklisted stream can be removed from the list [Info on format here](https://golang.org/pkg/time/#ParseDuration)<br/>
-
 #### RTSP_STREAM_CLEANUP_TIME
 Default: `2m0s`<br/>
 Type: string<br/>
@@ -79,6 +69,21 @@ Description: Turns on / off debug features<br/>
 Default: `false`<br/>
 Type: bool<br/>
 Description: Turns on / off the `/list` endpoint<br/>
+
+#### RTSP_STREAM_BLACKLIST_ENABLED
+Default: `true`<br/>
+Type: bool<br/>
+Description: Option to turn on / off blacklist that can filter requests with unloadable streams<br/>
+
+#### RTSP_STREAM_BLACKLIST_LIMIT
+Default: `25`<br/>
+Type: int<br/>
+Description: Determines how many times a given URI can be tried to start. After this amount the given URI is getting blacklisted<br/>
+
+#### RTSP_STREAM_BLACKLIST_TIME
+Default: `1h`<br/>
+Type: string<br/>
+Description: Time period which after a blacklisted stream can be removed from the list [Info on format here](https://golang.org/pkg/time/#ParseDuration)<br/>
 
 <hr/>
 
