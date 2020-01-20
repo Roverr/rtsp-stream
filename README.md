@@ -17,9 +17,8 @@ rtsp-stream is an easy to use, out of box solution that can be integrated into e
 * [Configuration](#configuration)
 * [UI](#ui)
 * [Debug](#debug)
-* [Contributions and reporting issues](#contributions-and-reporting-issues)
 * [Proven players](#proven-players)
-* [Support](#support)
+* [Contributions and reporting issues](#contributions-and-reporting-issues)
 
 ## How does it work
 
@@ -132,8 +131,3 @@ The following list of players has been already tried out in production environme
 ## Contributions and reporting issues
 
 See more information about [this here](docs/contribution/README.md).
-
-## Support
-
-Wanna support the development of this project and possibly other interesting open source solutions?<br/>
-Consider buying me a cup of hot coffee to boost my spirit in these trying times. :sleeping: :heart:
