@@ -47,9 +47,11 @@ docker run -p 80:8080 roverr/rtsp-stream:1
 ```
 ## Easy API
 
-There are 2 endpoint to call
+There are 4 endpoints that are fully configurable to call
 * `/start` - to start transcoding of a stream
 * `/stream/id/*fileId` - static endpoint to serve video files for your browser
+* `/list` - lists streams already known
+* `/stop` - stops and removes a given stream
 
 [Read full documentation on API](docs/api/README.md).
 

@@ -20,15 +20,25 @@ func main() {
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
 	controllers := core.NewController(config, fileServer)
-	if config.ListEndpoint {
-		router.GET("/list", controllers.ListStreamHandler)
-	}
 	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		w.WriteHeader(http.StatusOK)
 	})
-	router.POST("/start", controllers.StartStreamHandler)
-	router.GET("/stream/*filepath", controllers.StaticFileHandler)
-	router.POST("/stop", controllers.StopStreamHandler)
+	if config.EndpointYML.Endpoints.List.Enabled {
+		router.GET("/list", controllers.ListStreamHandler)
+		logrus.Infoln("list endpoint enabled | MainProcess")
+	}
+	if config.EndpointYML.Endpoints.Start.Enabled {
+		router.POST("/start", controllers.StartStreamHandler)
+		logrus.Infoln("start endpoint enabled | MainProcess")
+	}
+	if config.EndpointYML.Endpoints.Static.Enabled {
+		router.GET("/stream/*filepath", controllers.StaticFileHandler)
+		logrus.Infoln("static endpoint enabled | MainProcess")
+	}
+	if config.EndpointYML.Endpoints.Stop.Enabled {
+		router.POST("/stop", controllers.StopStreamHandler)
+		logrus.Infoln("stop endpoint enabled | MainProcess")
+	}
 	done := controllers.ExitPreHook()
 	handler := cors.AllowAll().Handler(router)
 	if config.CORS.Enabled {

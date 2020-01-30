@@ -53,25 +53,32 @@ type Process struct {
 
 // Specification describes the application context settings
 type Specification struct {
-	Debug        bool `envconfig:"DEBUG" default:"false"`         // Indicates if debug log should be enabled or not
-	Port         int  `envconfig:"PORT" default:"8080"`           // Port that the application listens on
-	ListEndpoint bool `envconfig:"LIST_ENDPOINT" default:"false"` // Turns on / off the stream listing endpoint feature
+	Debug bool `envconfig:"DEBUG" default:"false"` // Indicates if debug log should be enabled or not
+	Port  int  `envconfig:"PORT" default:"8080"`   // Port that the application listens on
 
 	CORS
 	Blacklist
 	Auth
 	Process
 	ProcessLogging
-	EndpointSetting
+	EndpointYML
 }
 
-// EndpointSetting describes how endpoints will work in the application
+// EndpointSetting describes how a given endpoint works in the application
 type EndpointSetting struct {
+	Enabled bool   `yml:"enabled"`
+	Secret  string `yml:"secret"`
+}
+
+// EndpointYML describes the yml structure used
+type EndpointYML struct {
 	Version   string `yaml:"version"`
-	Endpoints map[string]struct {
-		Enabled bool   `yml:"enabled"`
-		Secret  string `yml:"secret"`
-	}
+	Endpoints struct {
+		Start  EndpointSetting `yaml:"start"`
+		Stop   EndpointSetting `yaml:"stop"`
+		List   EndpointSetting `yaml:"list"`
+		Static EndpointSetting `yaml:"static"`
+	} `yaml:"endpoints"`
 }
 
 // InitConfig is to initalise the config
@@ -85,9 +92,8 @@ func InitConfig() *Specification {
 		s.KeepFiles = true
 		s.Process.Audio = false
 		s.ProcessLogging.Enabled = true
-		s.ListEndpoint = true
 	}
-	setting := EndpointSetting{}
+	setting := EndpointYML{}
 	dat, err := ioutil.ReadFile("rtsp-stream.yml")
 	if err != nil {
 		log.Fatalf("error: %v", err)
@@ -96,6 +102,6 @@ func InitConfig() *Specification {
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	s.EndpointSetting = setting
+	s.EndpointYML = setting
 	return &s
 }

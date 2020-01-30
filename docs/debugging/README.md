@@ -124,7 +124,7 @@ autostart=true
 autorestart=true
 stderr_logfile=/var/log/rtsp-stream.err.log
 stdout_logfile=/var/log/rtsp-stream.out.log
-environment=RTSP_STREAM_LIST_ENDPOINT=true
+environment=RTSP_STREAM_DEBUG=true
 [program:rtsp-stream-ui]
 command=http-server -p 80 /ui/
 autostart=true

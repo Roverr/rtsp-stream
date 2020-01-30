@@ -1,5 +1,7 @@
 ## Configuration
 
+This page describes the enviroment settings the application accepts. You can find the API configuration [here.](../api)
+
 You can configure the following settings in the application with environment variables:
 
 ### Transcoding related configuration:
@@ -15,6 +17,11 @@ Description: Time period for the cleanup process that removes inactive streams. 
 Default: `./videos`<br/>
 Type: string<br/>
 Description: Sub directory to store the video chunks<br/>
+
+#### RTSP_STREAM_AUDIO_ENABLED
+Default: `true`<br/>
+Type: boolean<br/>
+Description: Indicates if transcoding will also include audio or not<br/>
 
 #### RTSP_STREAM_KEEP_FILES
 Default: `false`<br/>
@@ -64,11 +71,6 @@ Description: Port where the application listens<br/>
 Default: `false`<br/>
 Type: bool<br/>
 Description: Turns on / off debug features<br/>
-
-#### RTSP_STREAM_LIST_ENDPOINT
-Default: `false`<br/>
-Type: bool<br/>
-Description: Turns on / off the `/list` endpoint<br/>
 
 #### RTSP_STREAM_BLACKLIST_ENABLED
 Default: `true`<br/>
