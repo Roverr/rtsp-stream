@@ -16,6 +16,8 @@ docker-debug: ## Builds the image and starts it in debug mode
 	docker run -d \
 	-v `pwd`/log:/var/log \
 	-e RTSP_STREAM_DEBUG=true \
+	-e RTSP_STREAM_AUTH_JWT_ENABLED=true \
+	-e RTSP_STREAM_AUTH_JWT_SECRET=your-256-bit-secret \
 	-e RTSP_STREAM_BLACKLIST_COUNT=2 \
 	-p 8080:8080 \
 	roverr/rtsp-stream:1

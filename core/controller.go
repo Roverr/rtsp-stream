@@ -51,7 +51,7 @@ type SummariseDTO struct {
 type IController interface {
 	marshalValidatedURI(dto *StreamDTO, body io.Reader) error                       // marshals and validates request body for /start
 	getIDByPath(path string) string                                                 // determines ID from the file access URL
-	isAuthenticated(r *http.Request) bool                                           // enforces JWT authentication if config is enabled
+	isAuthenticated(r *http.Request, endpoint string) bool                          // enforces JWT authentication if config is enabled
 	stopInactiveStreams()                                                           // used periodically to stop streams
 	sendError(w http.ResponseWriter, err error, status int)                         // used by Handlers to send out errors
 	sendStart(w http.ResponseWriter, success bool, stream *streaming.Stream)        // used by start to send out response
@@ -133,9 +133,35 @@ func (c *Controller) getIDByPath(path string) string {
 
 // isAuthenticated is for checking if the user's request is valid or not
 // from a given authentication strategy's perspective
-func (c *Controller) isAuthenticated(r *http.Request) bool {
-	if c.spec.JWTEnabled {
-		return c.jwt.Validate(r.Header.Get("Authorization"))
+func (c *Controller) isAuthenticated(r *http.Request, endpoint string) bool {
+	if !c.spec.JWTEnabled {
+		return true
+	}
+	token, claims := c.jwt.Validate(r.Header.Get("Authorization"))
+	if token == nil || !token.Valid {
+		return false
+	}
+	switch endpoint {
+	case "list":
+		if c.spec.Endpoints.List.Secret == "" {
+			return true
+		}
+		return claims.Secret == c.spec.Endpoints.List.Secret
+	case "start":
+		if c.spec.Endpoints.Start.Secret == "" {
+			return true
+		}
+		return claims.Secret == c.spec.Endpoints.Start.Secret
+	case "stop":
+		if c.spec.Endpoints.Stop.Secret == "" {
+			return true
+		}
+		return claims.Secret == c.spec.Endpoints.Stop.Secret
+	case "static":
+		if c.spec.Endpoints.Static.Secret == "" {
+			return true
+		}
+		return claims.Secret == c.spec.Endpoints.Static.Secret
 	}
 	return true
 }
@@ -178,14 +204,14 @@ func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *stre
 		return
 	}
 	logrus.Infof("%s started processing | StartHandler", stream.OriginalURI)
-	b, _ := json.Marshal(StreamDTO{URI: stream.Path})
+	b, _ := json.Marshal(SummariseDTO{URI: stream.Path, Running: true, ID: stream.ID})
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(b)
 }
 
 // ListStreamHandler is the HTTP handler of the GET /list call
 func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if !c.isAuthenticated(r) {
+	if !c.isAuthenticated(r, "list") {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -208,7 +234,7 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 
 // StopStreamHandler is the HTTP handler of the stop stream request - POST /stop
 func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if !c.isAuthenticated(r) {
+	if !c.isAuthenticated(r, "stop") {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -244,7 +270,7 @@ func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p
 
 // StartStreamHandler is an HTTP handler for the POST /start endpoint
 func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if !c.isAuthenticated(r) {
+	if !c.isAuthenticated(r, "start") {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -297,7 +323,7 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 
 // StaticFileHandler is HTTP handler for direct file requests
 func (c *Controller) StaticFileHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
-	if !c.isAuthenticated(req) {
+	if !c.isAuthenticated(req, "static") {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}

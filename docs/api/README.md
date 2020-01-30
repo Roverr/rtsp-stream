@@ -80,6 +80,7 @@ Response:
 ```js
 { 
     "uri": "/stream/id/index.m3u8",
+    "running": true,
     "id": "id"
 }
 ```
