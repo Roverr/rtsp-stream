@@ -6,37 +6,60 @@
  ![GitHub last commit](https://img.shields.io/github/last-commit/Roverr/rtsp-stream.svg)
  ![GitHub release](https://img.shields.io/github/release/Roverr/rtsp-stream.svg)
 
-rtsp-stream is an easy to use out of box solution that can be integrated into existing systems resolving the problem of not being able to play rtsp stream natively in browsers. 
+rtsp-stream is an easy to use, out of box solution that can be integrated into existing systems resolving the problem of not being able to play raw rtsp stream natively in browsers. 
 
 ## Table of contents
 * [How does it work](#how-does-it-work)
-* [Authentication](#authentication)
-    * [No Authentication](#no-authentication)
-    * [JWT](#jwt-authentication)
-* [Easy API](#easy-api)
-* [Configuration](#configuration)
-    * [Transcoding](#transcoding-related-configuration)
-    * [HTTP](#http-related-configuration)
-    * [CORS](#cors-related-configuration)
 * [Run with Docker](#run-with-docker)
+* [Easy API](#easy-api)
+* [Authentication](#authentication)
+    * [JWT](#jwt-authentication)
+* [Configuration](#configuration)
 * [UI](#ui)
+* [Debug](#debug)
 * [Proven players](#proven-players)
-* [Coming soon](#coming-soon)
-
+* [Contributions and reporting issues](#contributions-and-reporting-issues)
 
 ## How does it work
-It converts `RTSP` streams into `HLS` based on traffic. The idea behind this is that the application should not transcode anything until someone is actually watching the stream. This can help with network bottlenecks in systems where there are a lot of cameras installed.
 
-There's a running go routine in the background that checks if a stream is being active or not. If it's not the transcoding stops until the next request for that stream.
+The application converts raw `RTSP` streams into `HLS`.<br/>
+The goal is make raw RTSP streams easily playable in browsers using HLS.
+
+<p align="center">
+  <img src="https://i.imgur.com/02X4uCX.png">
+</p>
+
+**Supports transcoding based on traffic**<br/>
+The idea behind this is that it should not transcode anything until someone is actually watching the stream. This can help with network bottlenecks in systems where there are a lot of cameras installed.<br/>
+There is a running go routine in the background that checks if a stream is being active or not. If it's not active anymore, the transcoding stops until the next request for that stream.
+
+This functionality is configurable though so you can use it as a normal transcoding service if you would like.
+
+## Run with Docker
+
+Why should you use it with Docker?<br/>
+Because the application relies on ffmpeg heavily therefore ensuring the environment is much easier with docker as everything comes with the image and you do not have to install anything besides docker. Other than installation, this way we can also avoid compatibility issues between operating systems.
+
+The application has an offical [Docker repository](https://hub.docker.com/r/roverr/rtsp-stream/) at Dockerhub, therefore you can easily run it with simple commands:
+
+```s
+docker run -p 80:8080 roverr/rtsp-stream:2
+```
+## Easy API
+
+There are 4 endpoints that are fully configurable to call
+* `/start` - to start transcoding of a stream
+* `/stream/id/*fileId` - static endpoint to serve video files for your browser
+* `/list` - lists streams already known
+* `/stop` - stops and removes a given stream
+
+[Read full documentation on API](docs/api/README.md).
 
 ## Authentication
 
 The application offers different ways for authentication. There are situations when you can get away with no authentication, just
 trusting requests because they are from reliable sources or just because they know how to use the API. In other cases, production cases, you definitely
 want to protect the service. This application was not written to handle users and logins, so authentication is as lightweight as possible.
-
-
-### No Authentication
 
 **By default there is no authentication** what so ever. This can be useful if you have private subnets
 where there is no real way to reach the service from the internet. (So every request is kind of trusted.) Also works great
@@ -47,9 +70,13 @@ if you just wanna try it out, maybe for home use.
 
 You can use shared key JWT authentication for the service.
 
-The service itself does not create any tokens, but your authentication service can create.
-After it's created it can be validated in the transcoder using the same secret / keys.
+The service does not create any tokens, but your authentication service can create.<br/>
+After it's created it can be validated in the transcoder using the same secret / keys.<br/>
 It is the easiest way to integrate into existing systems.
+
+<p align="center">
+  <img width="600" height="500" src="https://i.imgur.com/j2dfmzf.png"/>
+</p>
 
 The following environment variables are available for this setup:
 
@@ -62,107 +89,18 @@ The following environment variables are available for this setup:
 
 You won't need the private key for it because no signing happens in this application.
 
-<img src="./transcoder_auth.png"/>
-
-## Easy API
-**There are 2 main endpoints to call:**
-
-`POST /start`
-
-Starts the transcoding of the given stream. You have to pass URI format with rtsp procotol. 
-The respond should be considered the subpath for the video player to call.
-So if your applicaiton is `myapp.com` then you should call `myapp.com/stream/host/index.m3u8` in your video player.
-The reason for this is to remain flexible regarding useability. 
-
-Requires payload:
-```js
-{ "uri": "rtsp://username:password@host" }
-```
-
-Response:
-```js
-{ "uri": "/stream/host/index.m3u8" }
-```
-<hr>
-
-`GET /stream/host/*file`
-
-Simple static file serving which is used when fetching chunks of `HLS`. This will be called by the client (browser) to fetch the chunks of the stream based on the given `index.m3u8`
-<hr>
-
-`GET /list`
-
-This (kind of a debug) endpoint is used to list the streams in the system. 
-Since the application does not handle users, it does not handle permissions obviously. 
-You might not want everyone to be able to list the streams 
-available in the system. But if you do, you can use this. You just have to enable it via [env variable](https://github.com/Roverr/rtsp-stream#configuration).
-
-
-
-Response:
-```js
-[
-    {
-        "running": true,
-        "uri": "/stream/185.180.88.98-streaming-channels-101/index.m3u8"
-    }
-]
-``` 
-
 ## Configuration
 
-You can configure the following settings in the application with environment variables:
+The application tries to be as flexible as possible therefore there are a lot of configuration options available.
+You can set the following information in the application:
+* Sub directory where the application stores video chunks
+* Time period for the cleanup process that stops streams if they are inactive
+* Option to keep all video chunks forever instead of removing them when a stream becomes inactive
+* Logging options for the underlying ffmpeg process
+* CORS and other HTTP related options for the backend server itself
+* Debug options for easier time when trying to find out what's wrong
 
-### Transcoding related configuration:
-
-| Env variable | Description | Default | Type |
-| :---        |    :----   |          ---: | :--- |
-| RTSP_STREAM_CLEANUP_TIME | Time period for the cleanup process [info on format here](https://golang.org/pkg/time/#ParseDuration) | `2m0s` | string |
-| RTSP_STREAM_STORE_DIR | Sub directory to store the video chunks | `./videos` | string |
-| RTSP_STREAM_KEEP_FILES | Option to keep the chunks for the stream being transcoded | `false` | bool |
-
-The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for the log rotation of the ffmpeg transcoding processes.
-
-| Env variable | Description | Default | Type |
-| :---        |    :----   |          ---: | :--- |
-| RTSP_STREAM_PROCESS_LOGGING_ENABLED | Indicates if logging of transcoding ffmpeg processes is enabled or not | `false` | bool |
-| RTSP_STREAM_PROCESS_LOGGING_DIR | Describes the directory where the transcoding logs are stored | `/var/log/rtsp-stream` | string |
-| RTSP_STREAM_PROCESS_LOGGING_MAX_SIZE | Maximum size of each log file in **megabytes** | `500` | integer |
-| RTSP_STREAM_PROCESS_LOGGING_MAX_AGE | Maximum number of days that we store a given log file. | `7` | integer |
-| RTSP_STREAM_PROCESS_LOGGING_MAX_BACKUPS | Maximum number of old log files to retain | `3` | integer |
-| RTSP_STREAM_PROCESS_LOGGING_COMPRESS | Option to compress the rotated log file or not | `true` | bool |
-
-<hr>
-
-### HTTP related configuration:
-
-| Env variable | Description | Default | Type |
-| :---        |    :----   |          ---: | :--- |
-| RTSP_STREAM_PORT | Port where the application listens | `8080` | integer |
-| RTSP_STREAM_DEBUG | Turns on / off debug logging | `false` | bool |
-| RTSP_STREAM_LIST_ENDPOINT | Turns on / off the `/list` endpoint | `false` | bool |
-
-<hr>
-
-### CORS related configuration
-
-By default all origin is allowed to make requests to the server, but you might want to configure it for security reasons.
-
-| Env variable | Description | Default | Type |
-| :---        |    :----   |          ---: | :--- |
-| RTSP_STREAM_CORS_ENABLED | Indicates if cors should be handled as configured or as default (everything allowed) | `false` | bool |
-| RTSP_STREAM_CORS_ALLOWED_ORIGIN | A list of origins a cross-domain request can be executed from |  | []string |
-| RTSP_STREAM_CORS_ALLOW_CREDENTIALS | Indicates whether the request can include user credentials like cookies, HTTP authentication or client side SSL certificates | `false` | bool |
-| RTSP_STREAM_CORS_MAX_AGE | Indicates how long (in seconds) the results of a preflight request can be cached. | `0` | integer |
-
-## Run with Docker
-The application has an offical docker repository at dockerhub, therefore you can easily run it with simple commands:
-
-```bash
-docker run -p 80:8080 roverr/rtsp-stream:1
-```
-
-or you can build it yourself using the source code.
+Check the full list of environment variables [here](docs/configuration/README.md)
 
 ## UI
 
@@ -170,8 +108,8 @@ You can use the included UI for handling the streams. The UI is not a compact so
 
 Running it with docker:
 
-```sh
-docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-management
+```s
+docker run -p 80:80 -p 8080:8080 roverr/rtsp-stream:2-management
 ```
 
 If you decide to use the management image, you should know that port 80 is flexible, you can set it to whatever you prefer, but 8080 is currently burnt into the UI as the ultimate port of the backend.
@@ -182,13 +120,9 @@ You should expect something like this:
 <img src="./ui.gif"/>
 
 
-### Logs
+## Debug
 
-With the UI solution the following files are created in `/var/log`: 
-* rtsp-stream-ui.err.log
-* rtsp-stream-ui.out.log
-* rtsp-stream.err.log
-* rtsp-stream.out.log
+Debug information is described [here](docs/debugging/README.md)
 
 ## Proven players
 The following list of players has been already tried out in production environment using this backend:
@@ -196,16 +130,6 @@ The following list of players has been already tried out in production environme
 * Angular - [videogular](http://www.videogular.com/)
 * React - [ReactHLS](https://github.com/foxford/react-hls)
 
-## Coming soon
-Codebase will be refactored as soon as I'll find some time to do it. 🙏
-That will mean a major version bump. The goal is still the same. Keep it relatively simple and easy to integrate.
-Solve the issue of not being able to play RTSP natively in browsers.
+## Contributions and reporting issues
 
-Plans for the future:
-- Throw out URI based directory creation completely
-- Add better logging and debug options
-- Separate HTTP from Stream processing completely
-- Add option to remove streams from the client (Could be tricky, gotta figure out if this should be an option even if non-authenticated mode is used)
-- Add better documentation about how to debug streams
-- Add documentation about how to create issues
-- Add guide for PRs
+See more information about [this here](docs/contribution/README.md).

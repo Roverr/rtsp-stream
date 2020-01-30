@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Roverr/rtsp-stream/core/auth"
+	"github.com/Roverr/rtsp-stream/core/blacklist"
 	"github.com/Roverr/rtsp-stream/core/config"
 	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
@@ -24,26 +25,41 @@ import (
 // ErrUnexpected describes an unexpected error
 var ErrUnexpected = errors.New("Unexpected error")
 
-// ErrDirectoryNotCreated is sent when the system cannot create the directory for the URI
-var ErrDirectoryNotCreated = errors.New("Could not create directory for URI")
-
 // ErrTimeout describes an error related to timing out
 var ErrTimeout = errors.New("Timeout error")
 
-// ErrDTO describes a DTO that has a message as an error
-type ErrDTO struct {
-	Error string `json:"error"`
-}
-
-// StreamDto describes an uri where the client can access the stream
-type StreamDto struct {
+// StreamDTO describes an uri where the client can access the stream
+type StreamDTO struct {
 	URI string `json:"uri"`
 }
 
-// SummariseDto describes each stream and their state of running
-type SummariseDto struct {
+// StopDTO describes a DTO for the /remove and /stop endpoints
+type StopDTO struct {
+	ID     string `json:"id"`
+	Wait   bool   `json:"wait"`
+	Remove bool   `json:"remove"`
+}
+
+// SummariseDTO describes each stream and their state of running
+type SummariseDTO struct {
 	Running bool   `json:"running"`
 	URI     string `json:"uri"`
+	ID      string `json:"id"`
+}
+
+// IController describes main functions for the controller
+type IController interface {
+	marshalValidatedURI(dto *StreamDTO, body io.Reader) error                       // marshals and validates request body for /start
+	getIDByPath(path string) string                                                 // determines ID from the file access URL
+	isAuthenticated(r *http.Request, endpoint string) bool                          // enforces JWT authentication if config is enabled
+	stopInactiveStreams()                                                           // used periodically to stop streams
+	sendError(w http.ResponseWriter, err error, status int)                         // used by Handlers to send out errors
+	sendStart(w http.ResponseWriter, success bool, stream *streaming.Stream)        // used by start to send out response
+	ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /list
+	StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) // handler - POST /start
+	StaticFileHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /stream/{id}/{file}
+	StopStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - POST /stop
+	ExitPreHook() chan bool                                                         // runs before the application exits to clean up
 }
 
 // Controller holds all handler functions for the API
@@ -51,213 +67,47 @@ type Controller struct {
 	spec       *config.Specification
 	streams    map[string]*streaming.Stream
 	index      map[string]string
+	blacklist  blacklist.IList
 	fileServer http.Handler
-	manager    IManager
-	processor  streaming.IProcessor
 	timeout    time.Duration
 	jwt        auth.JWT
 }
 
+// Type check
+var _ IController = (*Controller)(nil)
+
 // NewController creates a new instance of Controller
 func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
-	manager := NewManager(time.Second * 20)
 	provider, err := auth.NewJWTProvider(spec.Auth)
 	if err != nil {
 		logrus.Fatal("Could not create new JWT provider: ", err)
 	}
-	return &Controller{
+	ctrl := &Controller{
 		spec,
 		map[string]*streaming.Stream{},
 		map[string]string{},
+		nil,
 		fileServer,
-		*manager,
-		streaming.NewProcessor(spec.Process.StoreDir, spec.Process.KeepFiles, spec.ProcessLogging),
 		time.Second * 15,
 		provider,
 	}
-}
-
-// SendError sends an error to the client
-func (c *Controller) SendError(w http.ResponseWriter, err error, status int) {
-	w.Header().Add("Content-Type", "application/json")
-	b, _ := json.Marshal(ErrDTO{Error: err.Error()})
-	w.WriteHeader(status)
-	w.Write(b)
-}
-
-// isAuthenticated is for checking if the user's request is valid or not
-// from a given authentication strategy's perspective
-func (c *Controller) isAuthenticated(r *http.Request) bool {
-	if c.spec.JWTEnabled {
-		return c.jwt.Validate(r.Header.Get("Authorization"))
+	if spec.BlacklistEnabled {
+		ctrl.blacklist = blacklist.NewList(spec.BlacklistTime, spec.BlacklistLimit)
 	}
-	return true
-}
-
-// ListStreamHandler is the HTTP handler of the /list call
-func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if !c.isAuthenticated(r) {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-	dto := []*SummariseDto{}
-	for key, stream := range c.streams {
-		dto = append(dto, &SummariseDto{URI: fmt.Sprintf("/stream/%s/index.m3u8", key), Running: stream.Streak.IsActive()})
-	}
-	b, err := json.Marshal(dto)
-	if err != nil {
-		c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
-		return
-	}
-	w.Header().Add("Content-Type", "application/json")
-	w.Write(b)
-}
-
-// StartStreamHandler is an HTTP handler for the /start endpoint
-func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if !c.isAuthenticated(r) {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-	var dto StreamDto
-	if err := c.marshalValidatedURI(&dto, r.Body); err != nil {
-		logrus.Error(err)
-		c.SendError(w, err, http.StatusBadRequest)
-		return
-	}
-	// Process streams that are already known in the system
-	if index, ok := c.index[dto.URI]; ok {
-		stream, ok := c.streams[index]
-		if !ok {
-			logrus.Error("Missing index for URI: ", dto.URI)
-			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
-			return
-		}
-		c.handleAlreadyKnownStream(w, stream, c.spec, stream.StorePath)
-		return
-	}
-	// Process new streams
-	logrus.Infof("%s started processing", dto.URI)
-	stream, physicalPath, id := c.processor.NewStream(dto.URI)
-	streamResolved := c.manager.Start(stream.CMD, physicalPath)
-	select {
-	case <-time.After(c.timeout):
-		c.SendError(w, ErrTimeout, http.StatusRequestTimeout)
-	case success := <-streamResolved:
-		if !success {
-			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
-			return
-		}
-		c.streams[id] = stream
-		c.index[dto.URI] = id
-		b, _ := json.Marshal(StreamDto{URI: stream.Path})
-		w.Header().Add("Content-Type", "application/json")
-		w.Write(b)
-	}
-}
-
-// ExitHandler is a function that can recognise when the application is being closed
-// and cleans up all background running processes
-func (c *Controller) ExitHandler() chan bool {
-	done := make(chan bool)
-	ch := make(chan os.Signal, 3)
-	signal.Notify(ch, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		<-ch
-		c.cleanUp()
-		done <- true
-	}()
-	return done
-}
-
-// handleAlreadyKnownStream is for dealing with stream starts that are already initiated before
-func (c *Controller) handleAlreadyKnownStream(w http.ResponseWriter, strm *streaming.Stream, spec *config.Specification, dir string) {
-	// If transcoding is not running, spin it back up
-	if !strm.Streak.IsActive() {
-		err := c.processor.Restart(strm, dir)
-		if err != nil {
-			logrus.Error(err)
-			c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
-			return
-		}
-	}
-	// If the stream is already running return its path
-	b, err := json.Marshal(StreamDto{URI: strm.Path})
-	if err != nil {
-		logrus.Error(err)
-		c.SendError(w, ErrUnexpected, http.StatusInternalServerError)
-		return
-	}
-	checkCh := c.manager.WaitForStream(fmt.Sprintf("%s/index.m3u8", strm.StorePath))
-	<-checkCh
-	w.Header().Add("Content-Type", "application/json")
-	w.Write(b)
-}
-
-// cleanUp stops all running processes
-func (c *Controller) cleanUp() {
-	for uri, strm := range c.streams {
-		logrus.Debugf("Closing processing of %s", uri)
-		if err := strm.CleanProcess(); err != nil {
-			logrus.Debugf("Could not close %s", uri)
-			logrus.Error(err)
-			return
-		}
-		logrus.Debugf("Succesfully closed processing for %s", uri)
-	}
-}
-
-// cleanUnused is for stopping all transcoding for streams that are not watched anymore
-func (c *Controller) cleanUnused() {
-	for name, data := range c.streams {
-		// If the streak is active, there is no need for stopping
-		if data.Streak.IsActive() {
-			logrus.Infof("%s is active, skipping cleaning process", name)
-			continue
-		}
-		logrus.Infof("%s is getting cleaned", name)
-		if err := data.CleanProcess(); err != nil {
-			if strings.Contains(err.Error(), "signal: killed") {
-				logrus.Infof("\n%s is cleaned", name)
-				continue
+	if spec.CleanupEnabled {
+		go func() {
+			for {
+				<-time.After(spec.CleanupTime)
+				ctrl.stopInactiveStreams()
 			}
-			logrus.Error(err)
-		}
-		logrus.Infof("%s is cleaned", name)
+		}()
 	}
-}
-
-// FileHandler is HTTP handler for direct file requests
-func (c *Controller) FileHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
-	if !c.isAuthenticated(req) {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-	defer c.fileServer.ServeHTTP(w, req)
-	filepath := ps.ByName("filepath")
-	req.URL.Path = filepath
-	hostKey := determineHost(filepath)
-	s, ok := c.streams[hostKey]
-	if !ok {
-		return
-	}
-	if s.Streak.IsActive() {
-		s.Streak.Hit()
-		return
-	}
-	logrus.Debugf("%s is getting restarted", hostKey)
-	if err := c.processor.Restart(s, hostKey); err != nil {
-		logrus.Error(err)
-		return
-	}
-	checkCh := c.manager.WaitForStream(fmt.Sprintf("%s/index.m3u8", s.StorePath))
-	<-checkCh
-	s.Streak.Activate().Hit()
+	return ctrl
 }
 
 // marshalValidateURI is for validiting that the URI is in a valid format
 // and marshaling it into the dto pointer
-func (c *Controller) marshalValidatedURI(dto *StreamDto, body io.Reader) error {
+func (c *Controller) marshalValidatedURI(dto *StreamDTO, body io.Reader) error {
 	uri, err := ioutil.ReadAll(body)
 	if err != nil {
 		return err
@@ -270,4 +120,246 @@ func (c *Controller) marshalValidatedURI(dto *StreamDto, body io.Reader) error {
 		return errors.New("Invalid URI")
 	}
 	return nil
+}
+
+// getIDByPath is for parsing out the unique ID of the stream from URL path
+func (c *Controller) getIDByPath(path string) string {
+	parts := strings.Split(path, "/")
+	if len(parts) >= 1 {
+		return parts[1]
+	}
+	return ""
+}
+
+// isAuthenticated is for checking if the user's request is valid or not
+// from a given authentication strategy's perspective
+func (c *Controller) isAuthenticated(r *http.Request, endpoint string) bool {
+	if !c.spec.JWTEnabled {
+		return true
+	}
+	token, claims := c.jwt.Validate(r.Header.Get("Authorization"))
+	if token == nil || !token.Valid {
+		return false
+	}
+	switch endpoint {
+	case "list":
+		if c.spec.Endpoints.List.Secret == "" {
+			return true
+		}
+		return claims.Secret == c.spec.Endpoints.List.Secret
+	case "start":
+		if c.spec.Endpoints.Start.Secret == "" {
+			return true
+		}
+		return claims.Secret == c.spec.Endpoints.Start.Secret
+	case "stop":
+		if c.spec.Endpoints.Stop.Secret == "" {
+			return true
+		}
+		return claims.Secret == c.spec.Endpoints.Stop.Secret
+	case "static":
+		if c.spec.Endpoints.Static.Secret == "" {
+			return true
+		}
+		return claims.Secret == c.spec.Endpoints.Static.Secret
+	}
+	return true
+}
+
+// stopInactiveStreams is for stopping all transcoding for streams that are not watched anymore
+func (c *Controller) stopInactiveStreams() {
+	for name, stream := range c.streams {
+		// If the streak is active, there is no need for stopping
+		if stream.Streak.IsActive() {
+			logrus.Infof("%s is active. Skipping. | Inactivity cleaning", name)
+			continue
+		}
+		if !stream.Running {
+			logrus.Debugf("%s is not running. Skipping. | Inactivity cleaning", name)
+			continue
+		}
+		logrus.Infof("%s is being stopped | Inactivity cleaning", name)
+		if err := stream.Stop(); err != nil {
+			logrus.Error(err)
+		}
+		logrus.Infof("%s is stopped | Inactivity cleaning", name)
+	}
+}
+
+// sendError sends an error to the client
+func (c *Controller) sendError(w http.ResponseWriter, err error, status int) {
+	w.Header().Add("Content-Type", "application/json")
+	b, _ := json.Marshal(struct {
+		Error string `json:"error"`
+	}{err.Error()})
+	w.WriteHeader(status)
+	w.Write(b)
+}
+
+// sendStart sends response for clients calling /start
+func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *streaming.Stream) {
+	if !stream.Running {
+		logrus.Debugln("Sending out error for request timeout | StartHandler")
+		c.sendError(w, ErrTimeout, http.StatusRequestTimeout)
+		return
+	}
+	logrus.Infof("%s started processing | StartHandler", stream.OriginalURI)
+	b, _ := json.Marshal(SummariseDTO{URI: stream.Path, Running: true, ID: stream.ID})
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// ListStreamHandler is the HTTP handler of the GET /list call
+func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if !c.isAuthenticated(r, "list") {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	dto := []*SummariseDTO{}
+	for key, stream := range c.streams {
+		dto = append(dto, &SummariseDTO{
+			URI:     fmt.Sprintf("/stream/%s/index.m3u8", key),
+			Running: stream.Streak.IsActive(),
+			ID:      stream.ID,
+		})
+	}
+	b, err := json.Marshal(dto)
+	if err != nil {
+		c.sendError(w, ErrUnexpected, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// StopStreamHandler is the HTTP handler of the stop stream request - POST /stop
+func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	if !c.isAuthenticated(r, "stop") {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		logrus.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	dto := StopDTO{}
+	err = json.Unmarshal(b, &dto)
+	if err != nil {
+		logrus.Error(err)
+		c.sendError(w, err, http.StatusInternalServerError)
+		return
+	}
+	if s, ok := c.streams[dto.ID]; ok {
+		logrus.Infof("%s is being stopped | StopStreamHandler", dto.ID)
+		err := s.Stop()
+		if err != nil {
+			logrus.Error(err)
+			c.sendError(w, err, http.StatusInternalServerError)
+			return
+		}
+		if dto.Remove {
+			delete(c.index, s.OriginalURI)
+			delete(c.streams, dto.ID)
+		}
+	}
+	logrus.Debugf("%s is stopped | StopStreamHandler", dto.ID)
+	w.WriteHeader(http.StatusOK)
+}
+
+// StartStreamHandler is an HTTP handler for the POST /start endpoint
+func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if !c.isAuthenticated(r, "start") {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	var dto StreamDTO
+	if err := c.marshalValidatedURI(&dto, r.Body); err != nil {
+		logrus.Error(err)
+		c.sendError(w, err, http.StatusBadRequest)
+		return
+	}
+	logrus.Debugf("%s is requested on /start | StartHandler", dto.URI)
+	if c.blacklist.IsBanned(dto.URI) {
+		logrus.Infof("%s is rejected because of blacklist | StartHandler", dto.URI)
+		c.sendError(w, fmt.Errorf("%s cannot be started", dto.URI), http.StatusTooManyRequests)
+		return
+	}
+	index, knownStream := c.index[dto.URI]
+	if knownStream {
+		stream, ok := c.streams[index]
+		if !ok {
+			logrus.Errorf("Missing index for URI: %s | StartHandler", dto.URI)
+			c.sendError(w, ErrUnexpected, http.StatusInternalServerError)
+			return
+		}
+		if stream.Running {
+			c.sendStart(w, true, stream)
+			return
+		}
+		stream.Restart().Wait()
+		c.sendStart(w, stream.Running, stream)
+		return
+	}
+	stream, id := streaming.NewStream(
+		dto.URI,
+		c.spec.StoreDir,
+		c.spec.KeepFiles,
+		c.spec.Audio,
+		c.spec.ProcessLogging,
+		25*time.Second,
+	)
+	stream.Start().Wait()
+	if stream.Running {
+		c.streams[id] = stream
+		c.index[dto.URI] = id
+		c.blacklist.Remove(dto.URI)
+	} else {
+		c.blacklist.AddOrIncrease(dto.URI)
+	}
+	c.sendStart(w, stream.Running, stream)
+}
+
+// StaticFileHandler is HTTP handler for direct file requests
+func (c *Controller) StaticFileHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	if !c.isAuthenticated(req, "static") {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	defer c.fileServer.ServeHTTP(w, req)
+	filepath := ps.ByName("filepath")
+	req.URL.Path = filepath
+	id := c.getIDByPath(filepath)
+	stream, ok := c.streams[id]
+	if !ok {
+		return
+	}
+	if stream.Streak.IsActive() || stream.Running {
+		stream.Streak.Hit()
+		return
+	}
+	logrus.Debugf("%s is getting restarted via file requests | FileHandler", id)
+	stream.Restart().Wait()
+}
+
+// ExitPreHook is a function that can recognise when the application is being closed
+// and cleans up all background running processes
+func (c *Controller) ExitPreHook() chan bool {
+	done := make(chan bool)
+	ch := make(chan os.Signal, 3)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-ch
+		for uri, strm := range c.streams {
+			logrus.Debugf("Closing processing of %s", uri)
+			if err := strm.Stop(); err != nil {
+				logrus.Error(err)
+				return
+			}
+			logrus.Debugf("Succesfully closed processing for %s", uri)
+		}
+		done <- true
+	}()
+	return done
 }

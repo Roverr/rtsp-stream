@@ -1,0 +1,12 @@
+version: 1.0
+endpoints:
+  start:
+    enabled: true
+  static:
+    enabled: true
+  stop:
+    enabled: true
+    secret: macilaci
+  list:
+    enabled: true
+    secret: macilaci

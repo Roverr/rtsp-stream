@@ -13,7 +13,17 @@ import (
 
 // JWT interface describes how token validation looks like
 type JWT interface {
-	Validate(token string) bool
+	Validate(token string) (*jwt.Token, *Claim)
+}
+
+// Claim describes the claim for the token
+type Claim struct {
+	Secret string `json:"secret"`
+}
+
+// Valid shows if the claim is valid or not
+func (c Claim) Valid() error {
+	return nil
 }
 
 // JWTProvider implements the validate method
@@ -44,14 +54,19 @@ func NewJWTProvider(settings config.Auth) (*JWTProvider, error) {
 }
 
 // Validate is for validating if the given token is authenticated
-func (jp JWTProvider) Validate(tokenString string) bool {
+func (jp JWTProvider) Validate(tokenString string) (*jwt.Token, *Claim) {
 	ts := strings.Replace(tokenString, "Bearer ", "", -1)
-	token, err := jwt.Parse(ts, jp.verify)
-	if err != nil {
-		logrus.Errorln("Error at token verification ", err)
-		return false
+	if ts == "" {
+		logrus.Debug("No token found")
+		return nil, nil
 	}
-	return token.Valid
+	claims := &Claim{}
+	token, err := jwt.ParseWithClaims(ts, claims, jp.verify)
+	if err != nil {
+		logrus.Errorf("Error at token verification: %s | JWTProvider", err)
+		return nil, nil
+	}
+	return token, claims
 }
 
 // verify is to check the signing method and return the secret

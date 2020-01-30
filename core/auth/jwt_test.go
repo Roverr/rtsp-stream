@@ -18,8 +18,10 @@ func TestJWTAuthWithSecret(t *testing.T) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{})
 	tokenString, err := token.SignedString([]byte(spec.Auth.JWTSecret))
 	assert.Nil(t, err)
-	assert.True(t, provider.Validate(tokenString))
-	assert.True(t, provider.Validate(fmt.Sprintf("Bearer %s", tokenString)))
+	validated, _ := provider.Validate(tokenString)
+	assert.NotNil(t, validated)
+	validated, _ = provider.Validate(fmt.Sprintf("Bearer %s", tokenString))
+	assert.NotNil(t, validated)
 }
 
 func TestJWTAuthWithRSA(t *testing.T) {
@@ -32,5 +34,6 @@ func TestJWTAuthWithRSA(t *testing.T) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{})
 	tokenString, err := token.SignedString(key)
 	assert.Nil(t, err)
-	assert.True(t, provider.Validate(tokenString))
+	validated, _ := provider.Validate(tokenString)
+	assert.NotNil(t, validated)
 }

@@ -2,23 +2,12 @@
 
 
 [[projects]]
-  branch = "master"
-  digest = "1:ecbb7ca9c577a5fc883f330cc7474276c72bfdc4a4ea3a16a43a464d4b3ea3b8"
+  digest = "1:81ec042f928b92023ad84215c95fb5d14c4597e92c6124202a720788ebab47c1"
   name = "github.com/Roverr/hotstreak"
   packages = ["."]
   pruneopts = "UT"
-  revision = "0709e41f4a19640fc0523bffd896491d273494d9"
-
-[[projects]]
-  digest = "1:4fc7ef733af25ff9e4a4799eb7d541b8d74f676896a3fd4446adefc86253afd8"
-  name = "github.com/brianvoe/gofakeit"
-  packages = [
-    ".",
-    "data",
-  ]
-  pruneopts = "UT"
-  revision = "19b40d7d6241163eba8b06ddec1041a36db06c54"
-  version = "v3.20.2"
+  revision = "1b1a61f52d3211f278c8b8e9d03315a85f44505d"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -129,7 +118,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Roverr/hotstreak",
-    "github.com/brianvoe/gofakeit",
     "github.com/dgrijalva/jwt-go",
     "github.com/google/uuid",
     "github.com/julienschmidt/httprouter",
@@ -138,6 +126,7 @@
     "github.com/rs/cors",
     "github.com/sirupsen/logrus",
     "github.com/stretchr/testify/assert",
+    "gopkg.in/yaml.v2",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
