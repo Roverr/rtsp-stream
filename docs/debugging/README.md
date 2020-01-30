@@ -25,7 +25,7 @@ When the client call the `/start` endpoint with an URI the service will try to u
 This will be logged on the console:
 
 ```s
-Imres-MacBook-Pro:rtsp-stream rover$ docker run -e RTSP_STREAM_DEBUG=true -p 8080:8080 roverr/rtsp-stream:1
+Imres-MacBook-Pro:rtsp-stream rover$ docker run -e RTSP_STREAM_DEBUG=true -p 8080:8080 roverr/rtsp-stream:2
 time="2019-11-18T17:35:47Z" level=info msg="RTSP-STREAM started on 8080"
 time="2019-11-18T17:36:17Z" level=info msg="rtsp://admin:password123@hosting.dyndns.org:554/Streaming/Channels/102 started processing"
 time="2019-11-18T17:36:17Z" level=debug msg="Created stream with storepath ./videos/784bf8eb-6082-43fe-a98b-72a6ddd6c02f"
@@ -36,7 +36,7 @@ You can recognise that the loaded video will be ID'd as `784bf8eb-6082-43fe-a98b
 ```s
 Imres-MacBook-Pro:rtsp-stream rover$ docker ps
 CONTAINER ID        IMAGE                  COMMAND                  CREATED             STATUS              PORTS                      NAMES
-4527f8008fe3        roverr/rtsp-stream:1   "/app/server"            2 minutes ago       Up 2 minutes        0.0.0.0:8080->8080/tcp     youthful_ride
+4527f8008fe3        roverr/rtsp-stream:2   "/app/server"            2 minutes ago       Up 2 minutes        0.0.0.0:8080->8080/tcp     youthful_ride
 
 Imres-MacBook-Pro:rtsp-stream rover$ docker exec -it 4527f8008fe3 /bin/bash
 bash-4.4# cat /var/log/rtsp-stream/784bf8eb-6082-43fe-a98b-72a6ddd6c02f.log 
@@ -108,7 +108,7 @@ While `exit status 1` is not the most detailed error, this is because the consol
 
 Furthermore you can attach a volume to the container to collect logs locally to a logs directory:
 ```s
-docker run -v `pwd`/logs:/var/log/ -p 8080:8080 -e RTSP_STREAM_DEBUG=true roverr/rtsp-stream:1
+docker run -v `pwd`/logs:/var/log/ -p 8080:8080 -e RTSP_STREAM_DEBUG=true roverr/rtsp-stream:2
 ```
 Now you can do debugging without even going into the container.
 
@@ -146,5 +146,5 @@ Usually you won't see anything in rtsp-stream.err.log and nothing in general in 
 The same rule works here as it works in the simple service. Setting `RTSP_STREAM_DEBUG=true` will enable process logging. Therefore logs for the processess will be also created in this image under `/var/log/rtsp-stream/`
 
 ```s
-docker run -v `pwd`/logs:/var/log/ -p 80:80 -p 8080:8080 roverr/rtsp-stream:1-management
+docker run -v `pwd`/logs:/var/log/ -p 80:80 -p 8080:8080 roverr/rtsp-stream:2-management
 ```

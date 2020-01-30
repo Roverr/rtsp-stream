@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/kelseyhightower/envconfig"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -94,14 +96,18 @@ func InitConfig() *Specification {
 		s.ProcessLogging.Enabled = true
 	}
 	setting := EndpointYML{}
+	defer func() {
+		s.EndpointYML = setting
+	}()
 	dat, err := ioutil.ReadFile("rtsp-stream.yml")
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		logrus.Errorf("error: %v", err)
+		return &s
 	}
 	err = yaml.Unmarshal(dat, &setting)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		logrus.Errorf("error: %v", err)
+		return &s
 	}
-	s.EndpointYML = setting
 	return &s
 }

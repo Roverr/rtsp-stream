@@ -58,7 +58,7 @@ If you are using **Docker** you can add your local file in the following way:
 docker run -v `pwd`/rtsp-stream.yml:/app/rtsp-stream.yml \
            -p 8080:8080 \
            -e RTSP_STREAM_DEBUG=true \
-           roverr/rtsp-stream:1
+           roverr/rtsp-stream:2
 ``` 
 
 More commands around docker at [debugging](../debugging#Docker)
