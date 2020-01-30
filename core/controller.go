@@ -28,20 +28,28 @@ var ErrUnexpected = errors.New("Unexpected error")
 // ErrTimeout describes an error related to timing out
 var ErrTimeout = errors.New("Timeout error")
 
-// StreamDto describes an uri where the client can access the stream
-type StreamDto struct {
+// StreamDTO describes an uri where the client can access the stream
+type StreamDTO struct {
 	URI string `json:"uri"`
+}
+
+// StopDTO describes a DTO for the /remove and /stop endpoints
+type StopDTO struct {
+	ID     string `json:"id"`
+	Wait   bool   `json:"wait"`
+	Remove bool   `json:"remove"`
 }
 
 // SummariseDTO describes each stream and their state of running
 type SummariseDTO struct {
 	Running bool   `json:"running"`
 	URI     string `json:"uri"`
+	ID      string `json:"id"`
 }
 
 // IController describes main functions for the controller
 type IController interface {
-	marshalValidatedURI(dto *StreamDto, body io.Reader) error                       // marshals and validates request body for /start
+	marshalValidatedURI(dto *StreamDTO, body io.Reader) error                       // marshals and validates request body for /start
 	getIDByPath(path string) string                                                 // determines ID from the file access URL
 	isAuthenticated(r *http.Request) bool                                           // enforces JWT authentication if config is enabled
 	stopInactiveStreams()                                                           // used periodically to stop streams
@@ -50,6 +58,7 @@ type IController interface {
 	ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /list
 	StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) // handler - POST /start
 	StaticFileHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /stream/{id}/{file}
+	StopStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - POST /stop
 	ExitPreHook() chan bool                                                         // runs before the application exits to clean up
 }
 
@@ -98,7 +107,7 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 
 // marshalValidateURI is for validiting that the URI is in a valid format
 // and marshaling it into the dto pointer
-func (c *Controller) marshalValidatedURI(dto *StreamDto, body io.Reader) error {
+func (c *Controller) marshalValidatedURI(dto *StreamDTO, body io.Reader) error {
 	uri, err := ioutil.ReadAll(body)
 	if err != nil {
 		return err
@@ -169,12 +178,12 @@ func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *stre
 		return
 	}
 	logrus.Infof("%s started processing | StartHandler", stream.OriginalURI)
-	b, _ := json.Marshal(StreamDto{URI: stream.Path})
+	b, _ := json.Marshal(StreamDTO{URI: stream.Path})
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(b)
 }
 
-// ListStreamHandler is the HTTP handler of the /list call
+// ListStreamHandler is the HTTP handler of the GET /list call
 func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !c.isAuthenticated(r) {
 		w.WriteHeader(http.StatusForbidden)
@@ -182,7 +191,11 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 	}
 	dto := []*SummariseDTO{}
 	for key, stream := range c.streams {
-		dto = append(dto, &SummariseDTO{URI: fmt.Sprintf("/stream/%s/index.m3u8", key), Running: stream.Streak.IsActive()})
+		dto = append(dto, &SummariseDTO{
+			URI:     fmt.Sprintf("/stream/%s/index.m3u8", key),
+			Running: stream.Streak.IsActive(),
+			ID:      stream.ID,
+		})
 	}
 	b, err := json.Marshal(dto)
 	if err != nil {
@@ -193,13 +206,49 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 	w.Write(b)
 }
 
-// StartStreamHandler is an HTTP handler for the /start endpoint
+// StopStreamHandler is the HTTP handler of the stop stream request - POST /stop
+func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	if !c.isAuthenticated(r) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		logrus.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	dto := StopDTO{}
+	err = json.Unmarshal(b, &dto)
+	if err != nil {
+		logrus.Error(err)
+		c.sendError(w, err, http.StatusInternalServerError)
+		return
+	}
+	if s, ok := c.streams[dto.ID]; ok {
+		logrus.Infof("%s is being stopped | StopStreamHandler", dto.ID)
+		err := s.Stop()
+		if err != nil {
+			logrus.Error(err)
+			c.sendError(w, err, http.StatusInternalServerError)
+			return
+		}
+		if dto.Remove {
+			delete(c.index, s.OriginalURI)
+			delete(c.streams, dto.ID)
+		}
+	}
+	logrus.Debugf("%s is stopped | StopStreamHandler", dto.ID)
+	w.WriteHeader(http.StatusOK)
+}
+
+// StartStreamHandler is an HTTP handler for the POST /start endpoint
 func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !c.isAuthenticated(r) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	var dto StreamDto
+	var dto StreamDTO
 	if err := c.marshalValidatedURI(&dto, r.Body); err != nil {
 		logrus.Error(err)
 		c.sendError(w, err, http.StatusBadRequest)

@@ -10,9 +10,18 @@ run:  ## Builds & Runs the application
 	go build . && ./rtsp-stream
 docker-build:  ## Builds normal docker container
 	docker build -t roverr/rtsp-stream:${DOCKER_VERSION} .
+docker-debug: ## Builds the image and starts it in debug mode
+	rm -rf ./log && mkdir log && \
+	$(MAKE) docker-build && \
+	docker run -d \
+	-v `pwd`/log:/var/log \
+	-e RTSP_STREAM_DEBUG=true \
+	-e RTSP_STREAM_BLACKLIST_COUNT=2 \
+	-p 8080:8080 \
+	roverr/rtsp-stream:1
 docker-build-mg:  ## Builds docker container with management UI
 	docker build -t roverr/rtsp-stream:${DOCKER_VERSION}-management -f Dockerfile.management .
-docker-debug: ## Builds management image and starts it in debug mode
+docker-debug-mg: ## Builds management image and starts it in debug mode
 	rm -rf ./log && mkdir log && \
 	$(MAKE) docker-build-mg && \
 	docker run -d \

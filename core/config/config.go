@@ -1,10 +1,12 @@
 package config
 
 import (
+	"io/ioutil"
 	"log"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // CORS is the ptions for cross origin handling
@@ -60,6 +62,16 @@ type Specification struct {
 	Auth
 	Process
 	ProcessLogging
+	EndpointSetting
+}
+
+// EndpointSetting describes how endpoints will work in the application
+type EndpointSetting struct {
+	Version   string `yaml:"version"`
+	Endpoints map[string]struct {
+		Enabled bool   `yml:"enabled"`
+		Secret  string `yml:"secret"`
+	}
 }
 
 // InitConfig is to initalise the config
@@ -73,6 +85,17 @@ func InitConfig() *Specification {
 		s.KeepFiles = true
 		s.Process.Audio = false
 		s.ProcessLogging.Enabled = true
+		s.ListEndpoint = true
 	}
+	setting := EndpointSetting{}
+	dat, err := ioutil.ReadFile("rtsp-stream.yml")
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+	err = yaml.Unmarshal(dat, &setting)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+	s.EndpointSetting = setting
 	return &s
 }

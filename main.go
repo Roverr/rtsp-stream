@@ -28,6 +28,7 @@ func main() {
 	})
 	router.POST("/start", controllers.StartStreamHandler)
 	router.GET("/stream/*filepath", controllers.StaticFileHandler)
+	router.POST("/stop", controllers.StopStreamHandler)
 	done := controllers.ExitPreHook()
 	handler := cors.AllowAll().Handler(router)
 	if config.CORS.Enabled {
