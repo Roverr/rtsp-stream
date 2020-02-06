@@ -17,8 +17,8 @@ import (
 	"github.com/Roverr/rtsp-stream/core/auth"
 	"github.com/Roverr/rtsp-stream/core/blacklist"
 	"github.com/Roverr/rtsp-stream/core/config"
-	"github.com/Roverr/rtsp-stream/core/streaming"
 	"github.com/julienschmidt/httprouter"
+	"github.com/riltech/streamer"
 	"github.com/sirupsen/logrus"
 )
 
@@ -54,7 +54,7 @@ type IController interface {
 	isAuthenticated(r *http.Request, endpoint string) bool                          // enforces JWT authentication if config is enabled
 	stopInactiveStreams()                                                           // used periodically to stop streams
 	sendError(w http.ResponseWriter, err error, status int)                         // used by Handlers to send out errors
-	sendStart(w http.ResponseWriter, success bool, stream *streaming.Stream)        // used by start to send out response
+	sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream)         // used by start to send out response
 	ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /list
 	StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) // handler - POST /start
 	StaticFileHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /stream/{id}/{file}
@@ -65,7 +65,7 @@ type IController interface {
 // Controller holds all handler functions for the API
 type Controller struct {
 	spec       *config.Specification
-	streams    map[string]*streaming.Stream
+	streams    map[string]*streamer.Stream
 	index      map[string]string
 	blacklist  blacklist.IList
 	fileServer http.Handler
@@ -84,7 +84,7 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 	}
 	ctrl := &Controller{
 		spec,
-		map[string]*streaming.Stream{},
+		map[string]*streamer.Stream{},
 		map[string]string{},
 		nil,
 		fileServer,
@@ -197,7 +197,7 @@ func (c *Controller) sendError(w http.ResponseWriter, err error, status int) {
 }
 
 // sendStart sends response for clients calling /start
-func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *streaming.Stream) {
+func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream) {
 	if !stream.Running {
 		logrus.Debugln("Sending out error for request timeout | StartHandler")
 		c.sendError(w, ErrTimeout, http.StatusRequestTimeout)
@@ -302,12 +302,19 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		c.sendStart(w, stream.Running, stream)
 		return
 	}
-	stream, id := streaming.NewStream(
+	stream, id := streamer.NewStream(
 		dto.URI,
 		c.spec.StoreDir,
 		c.spec.KeepFiles,
 		c.spec.Audio,
-		c.spec.ProcessLogging,
+		streamer.ProcessLoggingOpts{
+			Enabled:    c.spec.ProcessLogging.Enabled,
+			Compress:   c.spec.ProcessLogging.Compress,
+			Directory:  c.spec.ProcessLogging.Directory,
+			MaxAge:     c.spec.ProcessLogging.MaxAge,
+			MaxBackups: c.spec.ProcessLogging.MaxBackups,
+			MaxSize:    c.spec.ProcessLogging.MaxSize,
+		},
 		25*time.Second,
 	)
 	stream.Start().Wait()

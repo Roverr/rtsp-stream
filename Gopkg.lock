@@ -74,6 +74,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:5d060f3baf84b37ebb019568be98bb0b7631ec865c87a92f53c3cf7e9a91c779"
+  name = "github.com/riltech/streamer"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b4a91bd3548cc5b34477b76aa21db8569c287331"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:c5dfe46811af7e2eff7c11fc84b6c841520338613c056f659f262d5a4fb42fa8"
   name = "github.com/rs/cors"
   packages = ["."]
@@ -117,12 +125,10 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Roverr/hotstreak",
     "github.com/dgrijalva/jwt-go",
-    "github.com/google/uuid",
     "github.com/julienschmidt/httprouter",
     "github.com/kelseyhightower/envconfig",
-    "github.com/natefinch/lumberjack",
+    "github.com/riltech/streamer",
     "github.com/rs/cors",
     "github.com/sirupsen/logrus",
     "github.com/stretchr/testify/assert",
