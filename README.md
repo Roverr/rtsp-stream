@@ -1,4 +1,4 @@
-# <img src="./rtsp-stream.png"/>
+# <img src="./docs/rtsp-stream.png"/>
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/Roverr/rtsp-stream)](https://goreportcard.com/report/github.com/Roverr/rtsp-stream)
  [![Maintainability](https://api.codeclimate.com/v1/badges/202152e83296250ab527/maintainability)](https://codeclimate.com/github/Roverr/rtsp-stream/maintainability)
@@ -117,7 +117,7 @@ If you decide to use the management image, you should know that port 80 is flexi
 You should expect something like this:
 
 
-<img src="./ui.gif"/>
+<img src="./docs/ui.gif"/>
 
 
 ## Debug

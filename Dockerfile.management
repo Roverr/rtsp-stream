@@ -21,8 +21,8 @@ RUN npm run build
 FROM woahbase/alpine-supervisor:x86_64
 RUN apk update && apk add bash ca-certificates ffmpeg nodejs npm && rm -rf /var/cache/apk/*
 RUN npm install http-server -g
-COPY ./supervisord.conf /etc/supervisord.conf
+COPY ./build/management/supervisord.conf /etc/supervisord.conf
 WORKDIR /app
 COPY --from=build-backend /go/src/github.com/Roverr/rtsp-stream/server /app/
-COPY rtsp-stream.yml /app/rtsp-stream.yml
+COPY ./build/rtsp-stream.yml /app/rtsp-stream.yml
 COPY --from=build-ui /tmp/ui/dist /ui/

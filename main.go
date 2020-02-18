@@ -59,7 +59,7 @@ func main() {
 	}()
 	<-done
 	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Printf("HTTP server Shutdown: %v", err)
+		logrus.Errorf("HTTP server Shutdown: %v", err)
 	}
 	os.Exit(0)
 }
