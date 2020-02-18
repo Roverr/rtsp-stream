@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -48,8 +49,17 @@ func main() {
 			MaxAge:           config.CORS.MaxAge,
 		}).Handler(router)
 	}
-	logrus.Infof("rtsp-stream transcoder started on %d | MainProcess", config.Port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), handler))
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", config.Port),
+		Handler: handler,
+	}
+	go func() {
+		logrus.Infof("rtsp-stream transcoder started on %d | MainProcess", config.Port)
+		log.Fatal(srv.ListenAndServe())
+	}()
 	<-done
+	if err := srv.Shutdown(context.Background()); err != nil {
+		log.Printf("HTTP server Shutdown: %v", err)
+	}
 	os.Exit(0)
 }
