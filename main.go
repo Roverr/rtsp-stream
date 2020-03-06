@@ -20,7 +20,8 @@ func main() {
 	core.SetupLogger(config)
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
-	controllers := core.NewController(config, fileServer)
+	listen := config.EndpointYML.Listen
+	controllers := core.NewController(config, fileServer, listen)
 	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -40,6 +41,7 @@ func main() {
 		router.POST("/stop", controllers.StopStreamHandler)
 		logrus.Infoln("stop endpoint enabled | MainProcess")
 	}
+
 	done := controllers.ExitPreHook()
 	handler := cors.AllowAll().Handler(router)
 	if config.CORS.Enabled {

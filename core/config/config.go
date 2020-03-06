@@ -72,6 +72,12 @@ type EndpointSetting struct {
 	Secret  string `yml:"secret"`
 }
 
+type ListenSetting struct {
+	Enabled        bool          `yaml:"enabled"`
+	Uri    		   string 		 `yaml:"uri"`
+	Name           string        `yaml:"name"`
+}
+
 // EndpointYML describes the yml structure used
 type EndpointYML struct {
 	Version   string `yaml:"version"`
@@ -81,6 +87,7 @@ type EndpointYML struct {
 		List   EndpointSetting `yaml:"list"`
 		Static EndpointSetting `yaml:"static"`
 	} `yaml:"endpoints"`
+	Listen [] ListenSetting `yaml:"listen"`
 }
 
 // InitConfig is to initalise the config
