@@ -26,6 +26,10 @@ endpoints:
   list:
     enabled: true
     secret: macilaci
+listen:
+   - name: camera1
+     uri: rtp://user:pass@host/camera/123
+     enabled: false
 ```
 * enabled - false by default - boolean that indicates if the given endpoint is enabled or not
 * secret - empty by default - string which will be the secret in the JWT token
@@ -47,6 +51,10 @@ endpoints:
   list:
     enabled: true
     secret: macilaci
+listen:
+   - name: camera1
+     uri: rtp://user:pass@host/camera/123
+     enabled: false
 ```
 
 In this example everyone can start a stream and fetch video chunks if they know the id of the video, but only users with macilaci secret will be able to access the stop and list endpoints. 
@@ -89,6 +97,7 @@ Response:
 
 Simple static file serving which is used when fetching chunks of `HLS`. This will be called by the client (browser) to fetch the chunks of the stream based on the given `index.m3u8`.
 Note that authentication will also be checked when accessing the files via this endpoint. Therefore for maximum performance you can turn off JWT authentication but it is not recommended at all.
+The id value can either be the uuid of the stream or the alias if available.
 
 ### GET /list
 
@@ -100,7 +109,14 @@ Response:
     {
         "running": true,
         "uri": "/stream/9f4fa8eb-98c0-4ef6-9b89-b115d13bb192/index.m3u8",
-        "id": "9f4fa8eb-98c0-4ef6-9b89-b115d13bb192"
+        "id": "9f4fa8eb-98c0-4ef6-9b89-b115d13bb192",
+        "alias": "9f4fa8eb-98c0-4ef6-9b89-b115d13bb192"
+    },
+    {
+        "running": false,
+        "uri": "/stream/camera1/index.m3u8",
+        "id": "8ab9a89c-8271-4c89-97b7-c91372f4c1b0",
+        "alias": "camera1"
     }
 ]
 ``` 
