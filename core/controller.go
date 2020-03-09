@@ -30,12 +30,14 @@ var ErrTimeout = errors.New("Timeout error")
 
 // StreamDTO describes an uri where the client can access the stream
 type StreamDTO struct {
-	URI string `json:"uri"`
+	URI   string `json:"uri"`
+	Alias string `json:"alias"`
 }
 
 // StopDTO describes a DTO for the /remove and /stop endpoints
 type StopDTO struct {
 	ID     string `json:"id"`
+	Alias  string `json:"alias"`
 	Wait   bool   `json:"wait"`
 	Remove bool   `json:"remove"`
 }
@@ -55,7 +57,7 @@ type IController interface {
 	isAuthenticated(r *http.Request, endpoint string) bool                          // enforces JWT authentication if config is enabled
 	stopInactiveStreams()                                                           // used periodically to stop streams
 	sendError(w http.ResponseWriter, err error, status int)                         // used by Handlers to send out errors
-	sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream)         // used by start to send out response
+	sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream, alias string)         // used by start to send out response
 	ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /list
 	StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) // handler - POST /start
 	StaticFileHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /stream/{id}/{file}
@@ -109,7 +111,7 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 	}
 
 	// retain preloads
-	for _, item := range spec.EndpointYML.listen {
+	for _, item := range spec.EndpointYML.Listen {
 		if item.Enabled {
 			ctrl.preload[item.Alias] = item.Uri
 		}
@@ -210,14 +212,22 @@ func (c *Controller) sendError(w http.ResponseWriter, err error, status int) {
 }
 
 // sendStart sends response for clients calling /start
-func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream) {
+func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream, alias string) {
 	if !stream.Running {
 		logrus.Debugln("Sending out error for request timeout | StartHandler")
 		c.sendError(w, ErrTimeout, http.StatusRequestTimeout)
 		return
 	}
 	logrus.Infof("%s started processing | StartHandler", stream.OriginalURI)
-	b, _ := json.Marshal(SummariseDTO{URI: stream.Path, Running: true, ID: stream.ID, Alias: stream.ID})
+
+	// use alias if provided
+	name := stream.ID
+	if len(alias) > 0 {
+		name = alias
+	}
+	Uri := fmt.Sprintf("/stream/%s/index.m3u8", name)
+
+	b, _ := json.Marshal(SummariseDTO{URI: Uri, Running: true, ID: stream.ID, Alias: alias})
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(b)
 }
@@ -285,6 +295,15 @@ func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p
 		c.sendError(w, err, http.StatusInternalServerError)
 		return
 	}
+
+	if dto.ID == "" && len(dto.Alias) > 0 {
+		// redirect alias if used
+		newid, ok := c.alias[dto.Alias]
+		if ok {
+			dto.ID = newid
+		}
+	}
+
 	if s, ok := c.streams[dto.ID]; ok {
 		logrus.Infof("%s is being stopped | StopStreamHandler", dto.ID)
 		err := s.Stop()
@@ -329,8 +348,8 @@ func (c *Controller) startPreloadStream(Alias string, Uri string) {
 	streamName := id
 	stream.Start().Wait()
 	if !stream.Running {
-		if c.blacklist.AddOrIncrease(URI).IsBanned(URI) {
-			delete(c.preload, Name)
+		if c.blacklist.AddOrIncrease(Uri).IsBanned(Uri) {
+			delete(c.preload, Alias)
 		}
 		return
 	}
@@ -373,14 +392,24 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 			c.sendError(w, ErrUnexpected, http.StatusInternalServerError)
 			return
 		}
+
+		// look for an alias since its known
+		alias := ""
+		for key, item := range c.alias {
+			if item == stream.ID {
+				alias = key
+			}
+		}
+
 		if stream.Running {
-			c.sendStart(w, true, stream)
+			c.sendStart(w, true, stream, alias)
 			return
 		}
 		stream.Restart().Wait()
-		c.sendStart(w, stream.Running, stream)
+		c.sendStart(w, stream.Running, stream, alias)
 		return
 	}
+
 	stream, id := streamer.NewStream(
 		dto.URI,
 		c.spec.StoreDir,
@@ -401,10 +430,14 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		c.streams[id] = stream
 		c.index[dto.URI] = id
 		c.blacklist.Remove(dto.URI)
+		// only add an alias if provided
+		if len(dto.Alias) > 0 {
+			c.alias[dto.Alias] = id
+		}
 	} else {
 		c.blacklist.AddOrIncrease(dto.URI)
 	}
-	c.sendStart(w, stream.Running, stream)
+	c.sendStart(w, stream.Running, stream, dto.Alias)
 }
 
 // StaticFileHandler is HTTP handler for direct file requests

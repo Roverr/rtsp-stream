@@ -52,7 +52,7 @@ endpoints:
     enabled: true
     secret: macilaci
 listen:
-   - name: camera1
+   - alias: camera1
      uri: rtp://user:pass@host/camera/123
      enabled: false
 ```
@@ -77,11 +77,14 @@ More commands around docker at [debugging](../debugging#Docker)
 Starts the transcoding of the given stream. You have to pass URI format with rtsp procotol. 
 The respond should be considered the subpath for the video player to call.
 So if your applicaiton is `myapp.com` then you should call `myapp.com/stream/host/index.m3u8` in your video player.
-The reason for this is to remain flexible regarding useability. 
+The reason for this is to remain flexible regarding useability. The alias value is optional.
 
 Requires payload:
 ```js
-{ "uri": "rtsp://username:password@host" }
+{ 
+    "uri": "rtsp://username:password@host",
+    "alias": "camera1"
+}
 ```
 
 Response:
@@ -89,7 +92,8 @@ Response:
 { 
     "uri": "/stream/id/index.m3u8",
     "running": true,
-    "id": "id"
+    "id": "id",
+    "alias": "camera1"
 }
 ```
 
@@ -123,12 +127,14 @@ Response:
 
 ### POST /stop
 
-Endpoint used for stopping and removing a stream from the stored list.
+Endpoint used for stopping and removing a stream from the stored list. Either include an ID or Alias value to identify the stream. 
+In the event both values are provided, the ID will be used.
 
 Requires payload:
 ```js
 { 
-    "id": "40b1cc1b-bf19-4b07-8359-e934e7222109"
+    "id": "40b1cc1b-bf19-4b07-8359-e934e7222109",
+    "alias": "camera1",
     "remove": true, // optional - indicates if stream should be removed as well from list or not
     "wait": false // optional - indicates if the call should wait for the stream to stop
 }
