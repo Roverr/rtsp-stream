@@ -12,7 +12,7 @@ endpoints:
     secret: macilaci
 
 listen:
-  - id: sample
+  - alias: sample
     uri: rtsp://user:pass@host/Streaming/Channels/123/
     enabled: false
 

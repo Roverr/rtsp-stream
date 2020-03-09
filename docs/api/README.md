@@ -27,7 +27,7 @@ endpoints:
     enabled: true
     secret: macilaci
 listen:
-   - name: camera1
+   - alias: camera1
      uri: rtp://user:pass@host/camera/123
      enabled: false
 ```

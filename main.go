@@ -20,8 +20,7 @@ func main() {
 	core.SetupLogger(config)
 	fileServer := http.FileServer(http.Dir(config.StoreDir))
 	router := httprouter.New()
-	listen := config.EndpointYML.Listen
-	controllers := core.NewController(config, fileServer, listen)
+	controllers := core.NewController(config, fileServer)
 	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		w.WriteHeader(http.StatusOK)
 	})

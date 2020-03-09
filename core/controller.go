@@ -80,7 +80,7 @@ type Controller struct {
 var _ IController = (*Controller)(nil)
 
 // NewController creates a new instance of Controller
-func NewController(spec *config.Specification, fileServer http.Handler, listen [] config.ListenSetting) *Controller {
+func NewController(spec *config.Specification, fileServer http.Handler) *Controller {
 	provider, err := auth.NewJWTProvider(spec.Auth)
 	if err != nil {
 		logrus.Fatal("Could not create new JWT provider: ", err)
@@ -90,7 +90,7 @@ func NewController(spec *config.Specification, fileServer http.Handler, listen [
 		map[string]*streamer.Stream{},
 		map[string]string{},
 		map[string]string{},
-		 map[string]string{},
+		map[string]string{},
 		nil,
 		fileServer,
 		time.Second * 15,
@@ -109,10 +109,9 @@ func NewController(spec *config.Specification, fileServer http.Handler, listen [
 	}
 
 	// retain preloads
-	for _, item := range listen {
+	for _, item := range spec.EndpointYML.listen {
 		if item.Enabled {
-			//ctrl.AutoStartStream(item)
-			ctrl.preload[item.Name] = item.Uri
+			ctrl.preload[item.Alias] = item.Uri
 		}
 	}
 
@@ -303,19 +302,16 @@ func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusOK)
 }
 
-func (c *Controller) StartPreloadStream(Name string, Uri string) {
-	var dto StreamDTO
+func (c *Controller) startPreloadStream(Alias string, Uri string) {
+	logrus.Debugf("%s is being initialized", Uri)
 
-	dto.URI = Uri
-	logrus.Debugf("%s is being initialized", dto.URI)
-
-	_, knownStream := c.index[dto.URI]
+	_, knownStream := c.index[Uri]
 	if knownStream {
 		return
 	}
 
 	stream, id := streamer.NewStream(
-		dto.URI,
+		Uri,
 		c.spec.StoreDir,
 		c.spec.KeepFiles,
 		c.spec.Audio,
@@ -334,16 +330,16 @@ func (c *Controller) StartPreloadStream(Name string, Uri string) {
 	stream.Start().Wait()
 	if stream.Running {
 		c.streams[id] = stream
-		c.index[dto.URI] = id
-		if len(Name) > 0 {
-			c.alias[Name] = id
-			streamname = Name
+		c.index[Uri] = id
+		if len(Alias) > 0 {
+			c.alias[Alias] = id
+			streamname = Alias
 		}
-		c.blacklist.Remove(dto.URI)
+		c.blacklist.Remove(Uri)
 	} else {
-		c.blacklist.AddOrIncrease(dto.URI)
+		c.blacklist.AddOrIncrease(Uri)
 	}
-	delete(c.preload, Name)
+	delete(c.preload, Alias)
 
 	logrus.Infoln("started stream /stream/" + streamname + "/index.m3u8")
 }
@@ -423,7 +419,7 @@ func (c *Controller) StaticFileHandler(w http.ResponseWriter, req *http.Request,
 	uri, ok := c.preload[id]
 	if ok {
 		logrus.Infoln("starting preload " + id + " now")
-		c.StartPreloadStream(id, uri)
+		c.startPreloadStream(id, uri)
 	}
 
 	// redirect alias if used

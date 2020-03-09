@@ -75,7 +75,7 @@ type EndpointSetting struct {
 type ListenSetting struct {
 	Enabled        bool          `yaml:"enabled"`
 	Uri    		   string 		 `yaml:"uri"`
-	Name           string        `yaml:"name"`
+	Alias          string        `yaml:"alias"`
 }
 
 // EndpointYML describes the yml structure used
