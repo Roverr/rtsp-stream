@@ -232,10 +232,10 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 
 	// active streams
 	for key, stream := range c.streams {
-		aliasname := ""
+		aliasName := ""
 		for name, id := range c.alias {
 			if id == stream.ID {
-				aliasname = name
+				aliasName = name
 				key = name
 			}
 		}
@@ -243,7 +243,7 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 			URI:     fmt.Sprintf("/stream/%s/index.m3u8", key),
 			Running: stream.Streak.IsActive(),
 			ID:      stream.ID,
-			Alias:    aliasname,
+			Alias:    aliasName,
 		})
 	}
 
@@ -252,7 +252,7 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 		dto = append(dto, &SummariseDTO{
 			URI:     fmt.Sprintf("/stream/%s/index.m3u8", name),
 			Running: false,
-			ID:      "n/a",
+			ID:      "",
 			Alias:    name,
 		})
 	}
@@ -326,22 +326,25 @@ func (c *Controller) startPreloadStream(Alias string, Uri string) {
 		25*time.Second,
 	)
 
-	streamname := id
+	streamName := id
 	stream.Start().Wait()
-	if stream.Running {
-		c.streams[id] = stream
-		c.index[Uri] = id
-		if len(Alias) > 0 {
-			c.alias[Alias] = id
-			streamname = Alias
+	if !stream.Running {
+		if c.blacklist.AddOrIncrease(URI).IsBanned(URI) {
+			delete(c.preload, Name)
 		}
-		c.blacklist.Remove(Uri)
-	} else {
-		c.blacklist.AddOrIncrease(Uri)
+		return
 	}
+
+	c.streams[id] = stream
+	c.index[Uri] = id
+	if len(Alias) > 0 {
+		c.alias[Alias] = id
+		streamName = Alias
+	}
+	c.blacklist.Remove(Uri)
 	delete(c.preload, Alias)
 
-	logrus.Infoln("started stream /stream/" + streamname + "/index.m3u8")
+	logrus.Infoln("started stream /stream/" + streamName + "/index.m3u8")
 }
 
 // StartStreamHandler is an HTTP handler for the POST /start endpoint
