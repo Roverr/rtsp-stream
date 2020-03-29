@@ -243,14 +243,15 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 	// active streams
 	for key, stream := range c.streams {
 		aliasName := ""
+		newKey := key
 		for name, id := range c.alias {
 			if id == stream.ID {
 				aliasName = name
-				key = name
+				newKey = name
 			}
 		}
 		dto = append(dto, &SummariseDTO{
-			URI:     fmt.Sprintf("/stream/%s/index.m3u8", key),
+			URI:     fmt.Sprintf("/stream/%s/index.m3u8", newKey),
 			Running: stream.Streak.IsActive(),
 			ID:      stream.ID,
 			Alias:    aliasName,
@@ -296,7 +297,12 @@ func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	if dto.ID == "" && len(dto.Alias) > 0 {
+	if dto.ID == "" && len(dto.Alias) == 0 {
+		c.sendError(w, err, http.StatusNotFound)
+		return
+	}
+
+	if len(dto.Alias) > 0 {
 		// redirect alias if used
 		newid, ok := c.alias[dto.Alias]
 		if ok {
