@@ -30,12 +30,14 @@ var ErrTimeout = errors.New("Timeout error")
 
 // StreamDTO describes an uri where the client can access the stream
 type StreamDTO struct {
-	URI string `json:"uri"`
+	URI   string `json:"uri"`
+	Alias string `json:"alias"`
 }
 
 // StopDTO describes a DTO for the /remove and /stop endpoints
 type StopDTO struct {
 	ID     string `json:"id"`
+	Alias  string `json:"alias"`
 	Wait   bool   `json:"wait"`
 	Remove bool   `json:"remove"`
 }
@@ -45,6 +47,7 @@ type SummariseDTO struct {
 	Running bool   `json:"running"`
 	URI     string `json:"uri"`
 	ID      string `json:"id"`
+	Alias   string `json:"alias"`
 }
 
 // IController describes main functions for the controller
@@ -54,7 +57,7 @@ type IController interface {
 	isAuthenticated(r *http.Request, endpoint string) bool                          // enforces JWT authentication if config is enabled
 	stopInactiveStreams()                                                           // used periodically to stop streams
 	sendError(w http.ResponseWriter, err error, status int)                         // used by Handlers to send out errors
-	sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream)         // used by start to send out response
+	sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream, alias string)         // used by start to send out response
 	ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /list
 	StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) // handler - POST /start
 	StaticFileHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /stream/{id}/{file}
@@ -67,6 +70,8 @@ type Controller struct {
 	spec       *config.Specification
 	streams    map[string]*streamer.Stream
 	index      map[string]string
+	alias      map[string]string
+	preload    map[string]string
 	blacklist  blacklist.IList
 	fileServer http.Handler
 	timeout    time.Duration
@@ -86,6 +91,8 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 		spec,
 		map[string]*streamer.Stream{},
 		map[string]string{},
+		map[string]string{},
+		map[string]string{},
 		nil,
 		fileServer,
 		time.Second * 15,
@@ -102,6 +109,14 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 			}
 		}()
 	}
+
+	// retain preloads
+	for _, item := range spec.EndpointYML.Listen {
+		if item.Enabled {
+			ctrl.preload[item.Alias] = item.Uri
+		}
+	}
+
 	return ctrl
 }
 
@@ -197,14 +212,22 @@ func (c *Controller) sendError(w http.ResponseWriter, err error, status int) {
 }
 
 // sendStart sends response for clients calling /start
-func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream) {
+func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream, alias string) {
 	if !stream.Running {
 		logrus.Debugln("Sending out error for request timeout | StartHandler")
 		c.sendError(w, ErrTimeout, http.StatusRequestTimeout)
 		return
 	}
 	logrus.Infof("%s started processing | StartHandler", stream.OriginalURI)
-	b, _ := json.Marshal(SummariseDTO{URI: stream.Path, Running: true, ID: stream.ID})
+
+	// use alias if provided
+	name := stream.ID
+	if len(alias) > 0 {
+		name = alias
+	}
+	Uri := fmt.Sprintf("/stream/%s/index.m3u8", name)
+
+	b, _ := json.Marshal(SummariseDTO{URI: Uri, Running: true, ID: stream.ID, Alias: alias})
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(b)
 }
@@ -216,13 +239,35 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 		return
 	}
 	dto := []*SummariseDTO{}
+
+	// active streams
 	for key, stream := range c.streams {
+		aliasName := ""
+		newKey := key
+		for name, id := range c.alias {
+			if id == stream.ID {
+				aliasName = name
+				newKey = name
+			}
+		}
 		dto = append(dto, &SummariseDTO{
-			URI:     fmt.Sprintf("/stream/%s/index.m3u8", key),
+			URI:     fmt.Sprintf("/stream/%s/index.m3u8", newKey),
 			Running: stream.Streak.IsActive(),
 			ID:      stream.ID,
+			Alias:    aliasName,
 		})
 	}
+
+	// preload streams
+	for name, _ := range c.preload {
+		dto = append(dto, &SummariseDTO{
+			URI:     fmt.Sprintf("/stream/%s/index.m3u8", name),
+			Running: false,
+			ID:      "",
+			Alias:    name,
+		})
+	}
+
 	b, err := json.Marshal(dto)
 	if err != nil {
 		c.sendError(w, ErrUnexpected, http.StatusInternalServerError)
@@ -251,6 +296,20 @@ func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p
 		c.sendError(w, err, http.StatusInternalServerError)
 		return
 	}
+
+	if dto.ID == "" && len(dto.Alias) == 0 {
+		c.sendError(w, err, http.StatusNotFound)
+		return
+	}
+
+	if len(dto.Alias) > 0 {
+		// redirect alias if used
+		newid, ok := c.alias[dto.Alias]
+		if ok {
+			dto.ID = newid
+		}
+	}
+
 	if s, ok := c.streams[dto.ID]; ok {
 		logrus.Infof("%s is being stopped | StopStreamHandler", dto.ID)
 		err := s.Stop()
@@ -266,6 +325,51 @@ func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p
 	}
 	logrus.Debugf("%s is stopped | StopStreamHandler", dto.ID)
 	w.WriteHeader(http.StatusOK)
+}
+
+func (c *Controller) startPreloadStream(Alias string, Uri string) {
+	logrus.Debugf("%s is being initialized", Uri)
+
+	_, knownStream := c.index[Uri]
+	if knownStream {
+		return
+	}
+
+	stream, id := streamer.NewStream(
+		Uri,
+		c.spec.StoreDir,
+		c.spec.KeepFiles,
+		c.spec.Audio,
+		streamer.ProcessLoggingOpts{
+			Enabled:    c.spec.ProcessLogging.Enabled,
+			Compress:   c.spec.ProcessLogging.Compress,
+			Directory:  c.spec.ProcessLogging.Directory,
+			MaxAge:     c.spec.ProcessLogging.MaxAge,
+			MaxBackups: c.spec.ProcessLogging.MaxBackups,
+			MaxSize:    c.spec.ProcessLogging.MaxSize,
+		},
+		25*time.Second,
+	)
+
+	streamName := id
+	stream.Start().Wait()
+	if !stream.Running {
+		if c.blacklist.AddOrIncrease(Uri).IsBanned(Uri) {
+			delete(c.preload, Alias)
+		}
+		return
+	}
+
+	c.streams[id] = stream
+	c.index[Uri] = id
+	if len(Alias) > 0 {
+		c.alias[Alias] = id
+		streamName = Alias
+	}
+	c.blacklist.Remove(Uri)
+	delete(c.preload, Alias)
+
+	logrus.Infoln("started stream /stream/" + streamName + "/index.m3u8")
 }
 
 // StartStreamHandler is an HTTP handler for the POST /start endpoint
@@ -294,14 +398,24 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 			c.sendError(w, ErrUnexpected, http.StatusInternalServerError)
 			return
 		}
+
+		// look for an alias since its known
+		alias := ""
+		for key, item := range c.alias {
+			if item == stream.ID {
+				alias = key
+			}
+		}
+
 		if stream.Running {
-			c.sendStart(w, true, stream)
+			c.sendStart(w, true, stream, alias)
 			return
 		}
 		stream.Restart().Wait()
-		c.sendStart(w, stream.Running, stream)
+		c.sendStart(w, stream.Running, stream, alias)
 		return
 	}
+
 	stream, id := streamer.NewStream(
 		dto.URI,
 		c.spec.StoreDir,
@@ -322,10 +436,14 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 		c.streams[id] = stream
 		c.index[dto.URI] = id
 		c.blacklist.Remove(dto.URI)
+		// only add an alias if provided
+		if len(dto.Alias) > 0 {
+			c.alias[dto.Alias] = id
+		}
 	} else {
 		c.blacklist.AddOrIncrease(dto.URI)
 	}
-	c.sendStart(w, stream.Running, stream)
+	c.sendStart(w, stream.Running, stream, dto.Alias)
 }
 
 // StaticFileHandler is HTTP handler for direct file requests
@@ -338,6 +456,23 @@ func (c *Controller) StaticFileHandler(w http.ResponseWriter, req *http.Request,
 	filepath := ps.ByName("filepath")
 	req.URL.Path = filepath
 	id := c.getIDByPath(filepath)
+
+	// start preload if registered
+	uri, ok := c.preload[id]
+	if ok {
+		logrus.Infoln("starting preload " + id + " now")
+		c.startPreloadStream(id, uri)
+	}
+
+	// redirect alias if used
+	newid, ok := c.alias[id]
+	if ok {
+		url := "/stream/" + newid + "/index.m3u8"
+		logrus.Infoln("redirecting alias " + id + " to " + url)
+		http.Redirect(w, req, url, 302)
+		return
+	}
+
 	stream, ok := c.streams[id]
 	if !ok {
 		return

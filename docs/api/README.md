@@ -26,6 +26,10 @@ endpoints:
   list:
     enabled: true
     secret: macilaci
+listen:
+   - alias: camera1
+     uri: rtp://user:pass@host/camera/123
+     enabled: false
 ```
 * enabled - false by default - boolean that indicates if the given endpoint is enabled or not
 * secret - empty by default - string which will be the secret in the JWT token
@@ -47,6 +51,10 @@ endpoints:
   list:
     enabled: true
     secret: macilaci
+listen:
+   - alias: camera1
+     uri: rtp://user:pass@host/camera/123
+     enabled: false
 ```
 
 In this example everyone can start a stream and fetch video chunks if they know the id of the video, but only users with macilaci secret will be able to access the stop and list endpoints. 
@@ -69,11 +77,14 @@ More commands around docker at [debugging](../debugging#Docker)
 Starts the transcoding of the given stream. You have to pass URI format with rtsp procotol. 
 The respond should be considered the subpath for the video player to call.
 So if your applicaiton is `myapp.com` then you should call `myapp.com/stream/host/index.m3u8` in your video player.
-The reason for this is to remain flexible regarding useability. 
+The reason for this is to remain flexible regarding useability. The alias value is optional.
 
 Requires payload:
 ```js
-{ "uri": "rtsp://username:password@host" }
+{ 
+    "uri": "rtsp://username:password@host",
+    "alias": "camera1"
+}
 ```
 
 Response:
@@ -81,7 +92,8 @@ Response:
 { 
     "uri": "/stream/id/index.m3u8",
     "running": true,
-    "id": "id"
+    "id": "id",
+    "alias": "camera1"
 }
 ```
 
@@ -89,6 +101,7 @@ Response:
 
 Simple static file serving which is used when fetching chunks of `HLS`. This will be called by the client (browser) to fetch the chunks of the stream based on the given `index.m3u8`.
 Note that authentication will also be checked when accessing the files via this endpoint. Therefore for maximum performance you can turn off JWT authentication but it is not recommended at all.
+The id value can either be the uuid of the stream or the alias if available.
 
 ### GET /list
 
@@ -100,19 +113,28 @@ Response:
     {
         "running": true,
         "uri": "/stream/9f4fa8eb-98c0-4ef6-9b89-b115d13bb192/index.m3u8",
-        "id": "9f4fa8eb-98c0-4ef6-9b89-b115d13bb192"
+        "id": "9f4fa8eb-98c0-4ef6-9b89-b115d13bb192",
+        "alias": "9f4fa8eb-98c0-4ef6-9b89-b115d13bb192"
+    },
+    {
+        "running": false,
+        "uri": "/stream/camera1/index.m3u8",
+        "id": "8ab9a89c-8271-4c89-97b7-c91372f4c1b0",
+        "alias": "camera1"
     }
 ]
 ``` 
 
 ### POST /stop
 
-Endpoint used for stopping and removing a stream from the stored list.
+Endpoint used for stopping and removing a stream from the stored list. Either include an ID or Alias value to identify the stream. 
+In the event both values are provided, the ID will be used.
 
 Requires payload:
 ```js
 { 
-    "id": "40b1cc1b-bf19-4b07-8359-e934e7222109"
+    "id": "40b1cc1b-bf19-4b07-8359-e934e7222109",
+    "alias": "camera1",
     "remove": true, // optional - indicates if stream should be removed as well from list or not
     "wait": false // optional - indicates if the call should wait for the stream to stop
 }

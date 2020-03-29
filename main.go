@@ -40,6 +40,7 @@ func main() {
 		router.POST("/stop", controllers.StopStreamHandler)
 		logrus.Infoln("stop endpoint enabled | MainProcess")
 	}
+
 	done := controllers.ExitPreHook()
 	handler := cors.AllowAll().Handler(router)
 	if config.CORS.Enabled {
