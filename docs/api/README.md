@@ -71,6 +71,17 @@ docker run -v `pwd`/rtsp-stream.yml:/app/rtsp-stream.yml \
 
 More commands around docker at [debugging](../debugging#Docker)
 
+```yaml
+listen:
+   - alias: camera1
+     uri: rtp://user:pass@host/camera/123
+     enabled: false
+```
+
+**listen** is used for preloading streams into the system. While ID generation here is not possible, the introduction of aliases helps in overcoming this issue. Listen is an array of streams to preload into the system.
+* alias - Used as the reference when starting a stream
+* uri - The URI for the camera source
+* enabled - Indicates if the system should load the given record or not
 
 ### POST /start
 
@@ -96,6 +107,9 @@ Response:
     "alias": "camera1"
 }
 ```
+
+**alias** is now available as a secondary reference for the stream. This means that you can reference a stream, by using its alias instead of its ID.<br/>
+Existing aliases can be overwritten. As the API is still URI based, the best case for using them is when preloading a stream.
 
 ### GET /stream/{id}/*file
 
