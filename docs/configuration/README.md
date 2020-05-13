@@ -8,6 +8,11 @@ You can configure the following settings in the application with environment var
 
 The project uses [Lumberjack](https://github.com/natefinch/lumberjack) for the log rotation of the ffmpeg transcoding processes.
 
+#### RTSP_STREAM_CLEANUP_ENABLED
+Default: `true`<br/>
+Type: boolean<br/>
+Description: Turns on / off the cleanup mechanism which stops inactive streams<br/>
+
 #### RTSP_STREAM_CLEANUP_TIME
 Default: `2m0s`<br/>
 Type: string<br/>
