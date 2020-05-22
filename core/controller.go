@@ -52,17 +52,17 @@ type SummariseDTO struct {
 
 // IController describes main functions for the controller
 type IController interface {
-	marshalValidatedURI(dto *StreamDTO, body io.Reader) error                       // marshals and validates request body for /start
-	getIDByPath(path string) string                                                 // determines ID from the file access URL
-	isAuthenticated(r *http.Request, endpoint string) bool                          // enforces JWT authentication if config is enabled
-	stopInactiveStreams()                                                           // used periodically to stop streams
-	sendError(w http.ResponseWriter, err error, status int)                         // used by Handlers to send out errors
-	sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream, alias string)         // used by start to send out response
-	ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /list
-	StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) // handler - POST /start
-	StaticFileHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - GET /stream/{id}/{file}
-	StopStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)  // handler - POST /stop
-	ExitPreHook() chan bool                                                         // runs before the application exits to clean up
+	marshalValidatedURI(dto *StreamDTO, body io.Reader) error                             // marshals and validates request body for /start
+	getIDByPath(path string) string                                                       // determines ID from the file access URL
+	isAuthenticated(r *http.Request, endpoint string) bool                                // enforces JWT authentication if config is enabled
+	stopInactiveStreams()                                                                 // used periodically to stop streams
+	sendError(w http.ResponseWriter, err error, status int)                               // used by Handlers to send out errors
+	sendStart(w http.ResponseWriter, success bool, stream *streamer.Stream, alias string) // used by start to send out response
+	ListStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)        // handler - GET /list
+	StartStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)       // handler - POST /start
+	StaticFileHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)        // handler - GET /stream/{id}/{file}
+	StopStreamHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)        // handler - POST /stop
+	ExitPreHook() chan bool                                                               // runs before the application exits to clean up
 }
 
 // Controller holds all handler functions for the API
@@ -93,7 +93,7 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 		map[string]string{},
 		map[string]string{},
 		map[string]string{},
-		nil,
+		(*blacklist.List)(nil),
 		fileServer,
 		time.Second * 15,
 		provider,
@@ -225,9 +225,9 @@ func (c *Controller) sendStart(w http.ResponseWriter, success bool, stream *stre
 	if len(alias) > 0 {
 		name = alias
 	}
-	Uri := fmt.Sprintf("/stream/%s/index.m3u8", name)
+	URI := fmt.Sprintf("/stream/%s/index.m3u8", name)
 
-	b, _ := json.Marshal(SummariseDTO{URI: Uri, Running: true, ID: stream.ID, Alias: alias})
+	b, _ := json.Marshal(SummariseDTO{URI: URI, Running: true, ID: stream.ID, Alias: alias})
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(b)
 }
@@ -254,17 +254,17 @@ func (c *Controller) ListStreamHandler(w http.ResponseWriter, r *http.Request, _
 			URI:     fmt.Sprintf("/stream/%s/index.m3u8", newKey),
 			Running: stream.Streak.IsActive(),
 			ID:      stream.ID,
-			Alias:    aliasName,
+			Alias:   aliasName,
 		})
 	}
 
 	// preload streams
-	for name, _ := range c.preload {
+	for name := range c.preload {
 		dto = append(dto, &SummariseDTO{
 			URI:     fmt.Sprintf("/stream/%s/index.m3u8", name),
 			Running: false,
 			ID:      "",
-			Alias:    name,
+			Alias:   name,
 		})
 	}
 
@@ -327,16 +327,16 @@ func (c *Controller) StopStreamHandler(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusOK)
 }
 
-func (c *Controller) startPreloadStream(Alias string, Uri string) {
-	logrus.Debugf("%s is being initialized", Uri)
+func (c *Controller) startPreloadStream(Alias string, URI string) {
+	logrus.Debugf("%s is being initialized", URI)
 
-	_, knownStream := c.index[Uri]
+	_, knownStream := c.index[URI]
 	if knownStream {
 		return
 	}
 
 	stream, id := streamer.NewStream(
-		Uri,
+		URI,
 		c.spec.StoreDir,
 		c.spec.KeepFiles,
 		c.spec.Audio,
@@ -354,19 +354,19 @@ func (c *Controller) startPreloadStream(Alias string, Uri string) {
 	streamName := id
 	stream.Start().Wait()
 	if !stream.Running {
-		if c.blacklist.AddOrIncrease(Uri).IsBanned(Uri) {
+		if c.blacklist.AddOrIncrease(URI).IsBanned(URI) {
 			delete(c.preload, Alias)
 		}
 		return
 	}
 
 	c.streams[id] = stream
-	c.index[Uri] = id
+	c.index[URI] = id
 	if len(Alias) > 0 {
 		c.alias[Alias] = id
 		streamName = Alias
 	}
-	c.blacklist.Remove(Uri)
+	c.blacklist.Remove(URI)
 	delete(c.preload, Alias)
 
 	logrus.Infoln("started stream /stream/" + streamName + "/index.m3u8")
