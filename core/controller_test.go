@@ -29,3 +29,43 @@ func TestGetIDByPath(t *testing.T) {
 		}
 	}
 }
+
+func TestRedirectAlias(t *testing.T) {
+	c := &Controller{
+		alias: map[string]string{
+			"alias": "id",
+		},
+	}
+
+	tt := []struct {
+		FilePath string
+		Expected string
+	}{
+		{
+			FilePath: "stream/12345/index.m3u8",
+			Expected: "",
+		},
+		{
+			FilePath: "stream/12345/22.ts",
+			Expected: "",
+		},
+		{
+			FilePath: "stream/alias/22.ts",
+			Expected: "/stream/id/22.ts",
+		},
+		{
+			FilePath: "stream/alias/index.m3u8",
+			Expected: "/stream/id/index.m3u8",
+		},
+	}
+
+	for i, testCase := range tt {
+		id := c.getIDByPath(testCase.FilePath)
+
+		url, redirect := c.shouldRedirectAlias(id, testCase.FilePath)
+
+		if !assert.Equal(t, testCase.Expected, url, testCase.FilePath) || !assert.Equal(t, testCase.Expected != "", redirect) {
+			t.Error(fmt.Errorf("%d testcase is failing", i))
+		}
+	}
+}
