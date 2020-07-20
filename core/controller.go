@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 	"syscall"
 	"time"
@@ -446,6 +447,22 @@ func (c *Controller) StartStreamHandler(w http.ResponseWriter, r *http.Request, 
 	c.sendStart(w, stream.Running, stream, dto.Alias)
 }
 
+func (c *Controller) shouldRedirectAlias(alias string, filepath string) (string, bool) {
+	id, ok := c.alias[alias]
+	if !ok {
+		return "", false
+	}
+
+	url := strings.Join(
+		[]string{
+			"/stream",
+			id,
+			path.Base(filepath),
+		}, "/")
+
+	return url, true
+}
+
 // StaticFileHandler is HTTP handler for direct file requests
 func (c *Controller) StaticFileHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	if !c.isAuthenticated(req, "static") {
@@ -465,9 +482,8 @@ func (c *Controller) StaticFileHandler(w http.ResponseWriter, req *http.Request,
 	}
 
 	// redirect alias if used
-	newid, ok := c.alias[id]
-	if ok {
-		url := "/stream/" + newid + "/index.m3u8"
+
+	if url, ok := c.shouldRedirectAlias(id, filepath); ok {
 		logrus.Infoln("redirecting alias " + id + " to " + url)
 		http.Redirect(w, req, url, 302)
 		return
