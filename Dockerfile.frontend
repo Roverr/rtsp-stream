@@ -1,0 +1,9 @@
+## Build UI
+FROM node:lts-slim
+RUN mkdir -p /app
+WORKDIR /app
+ADD ./ui ./
+COPY ./build/init_ui.sh  ./init_ui.sh
+RUN chmod +x ./init_ui.sh
+RUN npm install
+ENTRYPOINT [ "/app/init_ui.sh" ]

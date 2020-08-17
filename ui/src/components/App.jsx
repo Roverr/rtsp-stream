@@ -19,7 +19,7 @@ class App extends Component {
         super(props);
         this.state = { streams: [], current: null };
         /** @property {APIHandler} apiHandler */
-        this.apiHandler = this.props.apiHandler || new APIHandler(process.env.API_URL || 'http://localhost:8080');
+        this.apiHandler = this.props.apiHandler || new APIHandler(process.env.API_URL || "http://localhost:8080");
         /** @property {HTMLInputElement} uriInput */
         this.uriInput;
     }
