@@ -72,10 +72,11 @@ type EndpointSetting struct {
 	Secret  string `yml:"secret"`
 }
 
+// ListenSetting describes settings with listen option
 type ListenSetting struct {
-	Enabled        bool          `yaml:"enabled"`
-	Uri    		   string 		 `yaml:"uri"`
-	Alias          string        `yaml:"alias"`
+	Enabled bool   `yaml:"enabled"`
+	URI     string `yaml:"uri"`
+	Alias   string `yaml:"alias"`
 }
 
 // EndpointYML describes the yml structure used
@@ -87,7 +88,7 @@ type EndpointYML struct {
 		List   EndpointSetting `yaml:"list"`
 		Static EndpointSetting `yaml:"static"`
 	} `yaml:"endpoints"`
-	Listen [] ListenSetting `yaml:"listen"`
+	Listen []ListenSetting `yaml:"listen"`
 }
 
 // InitConfig is to initalise the config
@@ -106,11 +107,12 @@ func InitConfig() *Specification {
 	defer func() {
 		s.EndpointYML = setting
 	}()
-	dat, err := ioutil.ReadFile("rtsp-stream.yml")
+	dat, err := ioutil.ReadFile("./rtsp-stream.yml")
 	if err != nil {
 		logrus.Errorf("error: %v", err)
 		return &s
 	}
+	logrus.Infoln(string(dat))
 	err = yaml.Unmarshal(dat, &setting)
 	if err != nil {
 		logrus.Errorf("error: %v", err)

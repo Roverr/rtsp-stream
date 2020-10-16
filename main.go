@@ -27,18 +27,26 @@ func main() {
 	if config.EndpointYML.Endpoints.List.Enabled {
 		router.GET("/list", controllers.ListStreamHandler)
 		logrus.Infoln("list endpoint enabled | MainProcess")
+	} else {
+		logrus.Infoln("list endpoint disabled | MainProcess")
 	}
 	if config.EndpointYML.Endpoints.Start.Enabled {
 		router.POST("/start", controllers.StartStreamHandler)
 		logrus.Infoln("start endpoint enabled | MainProcess")
+	} else {
+		logrus.Infoln("start endpoint disabled | MainProcess")
 	}
 	if config.EndpointYML.Endpoints.Static.Enabled {
 		router.GET("/stream/*filepath", controllers.StaticFileHandler)
 		logrus.Infoln("static endpoint enabled | MainProcess")
+	} else {
+		logrus.Infoln("static endpoint disabled | MainProcess")
 	}
 	if config.EndpointYML.Endpoints.Stop.Enabled {
 		router.POST("/stop", controllers.StopStreamHandler)
 		logrus.Infoln("stop endpoint enabled | MainProcess")
+	} else {
+		logrus.Infoln("stop endpoint disabled | MainProcess")
 	}
 
 	done := controllers.ExitPreHook()

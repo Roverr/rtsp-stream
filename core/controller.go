@@ -114,7 +114,7 @@ func NewController(spec *config.Specification, fileServer http.Handler) *Control
 	// retain preloads
 	for _, item := range spec.EndpointYML.Listen {
 		if item.Enabled {
-			ctrl.preload[item.Alias] = item.Uri
+			ctrl.preload[item.Alias] = item.URI
 		}
 	}
 
