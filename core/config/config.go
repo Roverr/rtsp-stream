@@ -25,7 +25,7 @@ type Auth struct {
 
 // ProcessLogging describes information about the logging mechanism of the transcoding FFMPEG process
 type ProcessLogging struct {
-	Enabled    bool   `envconfig:"PROCESS_LOGGING" default:"false"`                    // Option to set logging for transcoding processes
+	Enabled    bool   `envconfig:"PROCESS_LOGGING" default:"true"`                     // Option to set logging for transcoding processes
 	Directory  string `envconfig:"PROCESS_LOGGING_DIR" default:"/var/log/rtsp-stream"` // Directory for the logs
 	MaxSize    int    `envconfig:"PROCESS_LOGGING_MAX_SIZE" default:"500"`             // Maximum size of kept logging files in megabytes
 	MaxBackups int    `envconfig:"PROCESS_LOGGING_MAX_BACKUPS" default:"3"`            // Maximum number of old log files to retain

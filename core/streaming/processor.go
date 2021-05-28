@@ -71,6 +71,8 @@ func (p Processor) NewProcess(path, URI string) *exec.Cmd {
 		URI,
 		"-vsync",
 		"0",
+		"-r",
+		"25",
 		"-copyts",
 		"-vcodec",
 		"copy",
