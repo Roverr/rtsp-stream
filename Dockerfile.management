@@ -2,15 +2,15 @@
 FROM golang:1.13-alpine AS build-backend
 ADD ./main.go /go/src/github.com/Roverr/rtsp-stream/main.go
 ADD ./core /go/src/github.com/Roverr/rtsp-stream/core
-ADD ./Gopkg.toml /go/src/github.com/Roverr/rtsp-stream/Gopkg.toml
+ADD ./go.mod /go/src/github.com/Roverr/rtsp-stream/go.mod
+ADD ./go.sum /go/src/github.com/Roverr/rtsp-stream/go.sum
 WORKDIR /go/src/github.com/Roverr/rtsp-stream
-RUN apk add --update --no-cache git
-RUN go get -u github.com/golang/dep/cmd/dep
-RUN dep ensure -v
+RUN go get -d -v ./...
 RUN go build -o server
 
 ## Build UI
 FROM node:lts-slim as build-ui
+RUN apt-get update && apt-get install -y g++ make python --no-install-recommends
 ADD ./ui /tmp/ui
 WORKDIR /tmp/ui
 RUN npm install
