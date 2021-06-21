@@ -19,11 +19,7 @@ type JWT interface {
 // Claim describes the claim for the token
 type Claim struct {
 	Secret string `json:"secret"`
-}
-
-// Valid shows if the claim is valid or not
-func (c Claim) Valid() error {
-	return nil
+    jwt.StandardClaims
 }
 
 // JWTProvider implements the validate method
